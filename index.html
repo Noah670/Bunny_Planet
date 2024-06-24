@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bunny Planet</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; touch-action: none; }
+        canvas { display: block; }
+        .mobile-controls { position: absolute; bottom: 20px; left: 20px; right: 20px; display: flex; justify-content: space-between; }
+        .mobile-controls button { width: 80px; height: 80px; font-size: 24px; background-color: rgba(255,255,255,0.5); border: none; border-radius: 50%; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div class="mobile-controls">
+        <button id="leftBtn">←</button>
+        <button id="jumpBtn">↑</button>
+        <button id="rightBtn">→</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const TILE_SIZE = 32;
+        const PLAYER_WIDTH = 26;
+        const PLAYER_HEIGHT = 40;
+
+        // Player
+        const player = {
+            x: 50,
+            y: canvas.height - TILE_SIZE * 4,
+            width: PLAYER_WIDTH,
+            height: PLAYER_HEIGHT,
+            speedX: 0,
+            speedY: 0,
+            maxSpeed: 5,
+            acceleration: 0.5,
+            jumpForce: 12,
+            isJumping: false,
+            gravityScale: 0.4,
+            friction: 0.9
+        };
+
+        // Camera
+        const camera = {
+            x: 0,
+            y: 0
+        };
+
+        // Game state
+        let score = 0;
+        let gameOver = false;
+
+        // Hub world design
+        const hubWorld = {
+            width: 100 * TILE_SIZE,
+            height: canvas.height,
+            platforms: [
+                // Main ground
+                {x: 0, y: canvas.height - TILE_SIZE, width: 100 * TILE_SIZE, height: TILE_SIZE},
+                // Floating islands
+                {x: 10 * TILE_SIZE, y: canvas.height - 5 * TILE_SIZE, width: 5 * TILE_SIZE, height: TILE_SIZE},
+                {x: 20 * TILE_SIZE, y: canvas.height - 7 * TILE_SIZE, width: 6 * TILE_SIZE, height: TILE_SIZE},
+                {x: 30 * TILE_SIZE, y: canvas.height - 9 * TILE_SIZE, width: 4 * TILE_SIZE, height: TILE_SIZE},
+                {x: 40 * TILE_SIZE, y: canvas.height - 6 * TILE_SIZE, width: 7 * TILE_SIZE, height: TILE_SIZE},
+                {x: 50 * TILE_SIZE, y: canvas.height - 8 * TILE_SIZE, width: 5 * TILE_SIZE, height: TILE_SIZE},
+            ],
+            bunnyOrbs: [
+                {x: 12 * TILE_SIZE, y: canvas.height - 6 * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE},
+                {x: 22 * TILE_SIZE, y: canvas.height - 8 * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE},
+                {x: 32 * TILE_SIZE, y: canvas.height - 10 * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE},
+                {x: 43 * TILE_SIZE, y: canvas.height - 7 * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE},
+                {x: 52 * TILE_SIZE, y: canvas.height - 9 * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE},
+            ],
+            tutorialText: [
+                {text: "Welcome to Bunny Planet!", x: 2 * TILE_SIZE, y: canvas.height - 7 * TILE_SIZE},
+                {text: "Use ← → to move", x: 15 * TILE_SIZE, y: canvas.height - 7 * TILE_SIZE},
+                {text: "Press ↑ to jump", x: 25 * TILE_SIZE, y: canvas.height - 9 * TILE_SIZE},
+                {text: "Collect bunny orbs!", x: 35 * TILE_SIZE, y: canvas.height - 7 * TILE_SIZE},
+            ]
+        };
+
+        // Background elements
+        const hills = [
+            {x: 0, y: canvas.height, radius: 300},
+            {x: 400, y: canvas.height, radius: 200},
+            {x: 800, y: canvas.height, radius: 350},
+            {x: 1200, y: canvas.height, radius: 250},
+        ];
+
+        const clouds = [];
+        for (let i = 0; i < 10; i++) {
+            clouds.push({
+                x: Math.random() * hubWorld.width,
+                y: Math.random() * (canvas.height / 2),
+                radius: Math.random() * 30 + 20,
+                speed: Math.random() * 0.5 + 0.1
+            });
+        }
+
+        // Stars (for nighttime effect)
+        const stars = [];
+        for (let i = 0; i < 100; i++) {
+            stars.push({
+                x: Math.random() * hubWorld.width,
+                y: Math.random() * (canvas.height / 2),
+                radius: Math.random() * 2,
+                alpha: Math.random(),
+                twinkleSpeed: Math.random() * 0.05
+            });
+        }
+
+        // Input handling
+        const keys = {};
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        // Mobile controls
+        const leftBtn = document.getElementById('leftBtn');
+        const jumpBtn = document.getElementById('jumpBtn');
+        const rightBtn = document.getElementById('rightBtn');
+
+        leftBtn.addEventListener('touchstart', () => keys['ArrowLeft'] = true);
+        leftBtn.addEventListener('touchend', () => keys['ArrowLeft'] = false);
+        rightBtn.addEventListener('touchstart', () => keys['ArrowRight'] = true);
+        rightBtn.addEventListener('touchend', () => keys['ArrowRight'] = false);
+        jumpBtn.addEventListener('touchstart', () => keys['ArrowUp'] = true);
+        jumpBtn.addEventListener('touchend', () => keys['ArrowUp'] = false);
+
+        // Game loop
+        function gameLoop(timestamp) {
+            update(timestamp);
+            draw(timestamp);
+            if (!gameOver) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Update game state
+        function update(timestamp) {
+            // Player movement
+            if (keys['ArrowLeft']) player.speedX = Math.max(player.speedX - player.acceleration, -player.maxSpeed);
+            if (keys['ArrowRight']) player.speedX = Math.min(player.speedX + player.acceleration, player.maxSpeed);
+            if (!keys['ArrowLeft'] && !keys['ArrowRight']) player.speedX *= player.friction;
+
+            player.x += player.speedX;
+            player.speedY += player.gravityScale;
+            player.y += player.speedY;
+
+            // Jumping
+            if (keys['ArrowUp'] && !player.isJumping) {
+                player.speedY = -player.jumpForce;
+                player.isJumping = true;
+            }
+
+            // Collision detection with platforms
+            let onPlatform = false;
+            hubWorld.platforms.forEach(platform => {
+                if (
+                    player.x < platform.x + platform.width &&
+                    player.x + player.width > platform.x &&
+                    player.y + player.height > platform.y &&
+                    player.y < platform.y + platform.height
+                ) {
+                    if (player.speedY > 0) {
+                        player.y = platform.y - player.height;
+                        player.speedY = 0;
+                        player.isJumping = false;
+                        onPlatform = true;
+                    }
+                }
+            });
+
+            if (!onPlatform) {
+                player.isJumping = true;
+            }
+
+            // Collect bunny orbs
+            hubWorld.bunnyOrbs = hubWorld.bunnyOrbs.filter(orb => {
+                if (
+                    player.x < orb.x + orb.width &&
+                    player.x + player.width > orb.x &&
+                    player.y < orb.y + orb.height &&
+                    player.y + player.height > orb.y
+                ) {
+                    score++;
+                    return false;
+                }
+                return true;
+            });
+
+            // Update camera
+            camera.x = player.x - canvas.width / 2;
+            camera.x = Math.max(0, Math.min(camera.x, hubWorld.width - canvas.width));
+
+            // Update clouds
+            clouds.forEach(cloud => {
+                cloud.x += cloud.speed;
+                if (cloud.x > hubWorld.width) {
+                    cloud.x = -cloud.radius * 2;
+                }
+            });
+
+            // Update stars
+            stars.forEach(star => {
+                star.alpha += Math.sin(timestamp * 0.001) * star.twinkleSpeed;
+                star.alpha = Math.max(0, Math.min(1, star.alpha));
+            });
+        }
+
+        // Draw game objects
+        function draw(timestamp) {
+            // Clear canvas
+            ctx.fillStyle = '#87CEEB';  // Sky blue
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Set up camera
+            ctx.save();
+            ctx.translate(-camera.x, 0);
+
+            // Draw hills
+            ctx.fillStyle = '#228B22';  // Forest green
+            hills.forEach(hill => {
+                ctx.beginPath();
+                ctx.arc(hill.x, hill.y, hill.radius, Math.PI, 2 * Math.PI);
+                ctx.fill();
+            });
+
+            // Draw clouds
+            ctx.fillStyle = '#FFFFFF';
+            clouds.forEach(cloud => {
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.radius, 0, 2 * Math.PI);
+                ctx.arc(cloud.x + cloud.radius * 0.5, cloud.y - cloud.radius * 0.5, cloud.radius * 0.7, 0, 2 * Math.PI);
+                ctx.arc(cloud.x - cloud.radius * 0.5, cloud.y - cloud.radius * 0.5, cloud.radius * 0.7, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+
+            // Draw stars (for a subtle twinkling effect)
+            ctx.fillStyle = '#FFF';
+            stars.forEach(star => {
+                ctx.globalAlpha = star.alpha * 0.3;  // Reduce opacity for subtlety
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw platforms
+            ctx.fillStyle = '#32CD32';  // Lime green
+            hubWorld.platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                // Add grass effect
+                ctx.fillStyle = '#228B22';
+                for (let x = platform.x; x < platform.x + platform.width; x += 5) {
+                    ctx.fillRect(x, platform.y - 5, 2, 5);
+                }
+                ctx.fillStyle = '#32CD32';
+            });
+
+            // Draw player
+            ctx.fillStyle = '#FFFFFF';  // White
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            // Add bunny ears
+            ctx.fillStyle = '#FFC0CB';  // Pink
+            ctx.fillRect(player.x + 5, player.y - 10, 5, 10);
+            ctx.fillRect(player.x + player.width - 10, player.y - 10, 5, 10);
+
+            // Draw bunny orbs
+            ctx.fillStyle = '#FFD700';  // Gold
+            hubWorld.bunnyOrbs.forEach(orb => {
+                ctx.beginPath();
+                ctx.arc(orb.x + TILE_SIZE / 2, orb.y + TILE_SIZE / 2, TILE_SIZE / 2, 0, Math.PI * 2);
+                ctx.fill();
+                // Add sparkle effect
+                const sparkleSize = 5;
+                const sparkleOffset = TILE_SIZE / 4;
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(orb.x + sparkleOffset, orb.y + sparkleOffset, sparkleSize, sparkleSize);
+                ctx.fillRect(orb.x + TILE_SIZE - sparkleOffset - sparkleSize, orb.y + TILE_SIZE - sparkleOffset - sparkleSize, sparkleSize, sparkleSize);
+                ctx.fillStyle = '#FFD700';
+            });
+
+            // Draw tutorial text
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 20px Arial';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            hubWorld.tutorialText.forEach(text => {
+                ctx.strokeText(text.text, text.x, text.y);
+                ctx.fillText(text.text, text.x, text.y);
+            });
+
+            // Reset camera
+            ctx.restore();
+
+            // Draw score
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 20px Arial';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(`Score: ${score}`, 10, 30);
+            ctx.fillText(`Score: ${score}`, 10, 30);
+        }
+
+        // Start the game loop
+        gameLoop();
+    </script>
+</body>
+</html>
