@@ -39,7 +39,8 @@ function init() {
     player = {
         mesh,
         planet: planets[0],
-        angle: 0,
+        lon: 0,  // longitude around the planet
+        lat: 0,  // latitude above/below equator
         radialDist: planets[0].radius + 0.5,
         vel: 0,
         canJump: true
@@ -69,10 +70,12 @@ function onResize() {
 
 function updatePlayer(delta) {
     const moveSpeed = 1.5;
-    if (keys['ArrowLeft']) player.angle += moveSpeed * delta;
-    if (keys['ArrowRight']) player.angle -= moveSpeed * delta;
+    if (keys['KeyA']) player.lon += moveSpeed * delta;
+    if (keys['KeyD']) player.lon -= moveSpeed * delta;
+    if (keys['KeyW']) player.lat = Math.min(player.lat + moveSpeed * delta, Math.PI / 2 - 0.01);
+    if (keys['KeyS']) player.lat = Math.max(player.lat - moveSpeed * delta, -Math.PI / 2 + 0.01);
 
-    if (keys['ArrowUp'] && player.canJump) {
+    if (keys['Space'] && player.canJump) {
         player.vel = 4; // jump velocity
         player.canJump = false;
     }
@@ -92,9 +95,10 @@ function updatePlayer(delta) {
 
 function updatePlayerPosition() {
     const planetPos = player.planet.position;
-    const x = planetPos.x + Math.cos(player.angle) * player.radialDist;
-    const z = planetPos.z + Math.sin(player.angle) * player.radialDist;
-    const y = planetPos.y;
+    const r = player.radialDist;
+    const x = planetPos.x + r * Math.cos(player.lat) * Math.cos(player.lon);
+    const y = planetPos.y + r * Math.sin(player.lat);
+    const z = planetPos.z + r * Math.cos(player.lat) * Math.sin(player.lon);
 
     player.mesh.position.set(x, y, z);
 
@@ -105,8 +109,15 @@ function updatePlayerPosition() {
 }
 
 function updateCamera() {
-    const offset = new THREE.Vector3(0, 2, 5).applyQuaternion(player.mesh.quaternion);
+    const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
+    const forward = new THREE.Vector3(
+        -Math.cos(player.lat) * Math.sin(player.lon),
+        0,
+        -Math.cos(player.lat) * Math.cos(player.lon)
+    ).normalize();
+    const offset = forward.clone().multiplyScalar(-5).add(up.clone().multiplyScalar(2));
     camera.position.copy(player.mesh.position).add(offset);
+    camera.up.copy(up);
     camera.lookAt(player.mesh.position);
 }
 
