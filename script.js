@@ -21,6 +21,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+function createPlayerModel() {
+    const group = new THREE.Group();
+
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3355ff });
+    const bodyGeo = new THREE.BoxGeometry(0.4, 0.6, 0.2);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.y = 0.3;
+    group.add(body);
+
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+    const headGeo = new THREE.SphereGeometry(0.25, 16, 16);
+    const head = new THREE.Mesh(headGeo, headMat);
+    head.position.y = 0.8;
+    group.add(head);
+
+    const hatMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    const brimGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.05, 16);
+    const brim = new THREE.Mesh(brimGeo, hatMat);
+    brim.position.y = 1.05;
+    group.add(brim);
+    const hatGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.2, 16);
+    const hat = new THREE.Mesh(hatGeo, hatMat);
+    hat.position.y = 1.15;
+    group.add(hat);
+
+    return group;
+}
+
 function init() {
     const canvas = document.getElementById('gameCanvas');
     renderer = new THREE.WebGLRenderer({ canvas });
@@ -53,10 +81,8 @@ function init() {
 
     bunnyCounter.textContent = bunnies.length;
 
-    // Player represented by a small cube
-    const geo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const mesh = new THREE.Mesh(geo, mat);
+    // Player model
+    const mesh = createPlayerModel();
     scene.add(mesh);
 
     const startPlanet = planets[0];
