@@ -22,5 +22,4 @@ To publish the site with GitHub Pages:
 2. Under **Pages**, set the branch to `main` and select the `/` root folder.
 3. Save, then visit the URL GitHub provides.
 
-A workflow file is included in `.github/workflows/gh-pages.yml` to automate deployments when pushing to `main`.
-Add a remote with `git remote add origin <your-repo-url>` then run `git push -u origin main` to deploy.
+A workflow file is included in `.github/workflows/gh-pages.yml` to automate deployments when pushing to `main`. Add a remote with `git remote add origin <your-repo-url>` then run `git push -u origin main` to deploy.
