@@ -48,6 +48,39 @@
             font-size: 24px;
             cursor: pointer;
         }
+        #joystick {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            touch-action: none;
+        }
+        #stick {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            left: 30px;
+            top: 30px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 50%;
+            transform: translate(0, 0);
+        }
+        #jumpButton {
+            position: absolute;
+            bottom: 40px;
+            right: 30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255,110,199,0.9);
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            touch-action: none;
+        }
     </style>
 </head>
 <body>
@@ -58,6 +91,8 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui">Bunnies left: <span id="bunnyCount">0</span></div>
     <div id="timer">Time: <span id="timerVal">250</span>s</div>
+    <div id="joystick"><div id="stick"></div></div>
+    <button id="jumpButton">Jump</button>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="script.js"></script>

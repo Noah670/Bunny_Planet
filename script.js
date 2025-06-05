@@ -4,6 +4,7 @@
 let scene, camera, renderer;
 let player;
 const keys = {};
+const joystick = { x: 0, y: 0, active: false, stick: null };
 const planets = [];
 const bunnies = [];
 const gravity = 9.8;
@@ -20,6 +21,37 @@ document.addEventListener('DOMContentLoaded', () => {
         init();
         animate();
     });
+
+    joystick.stick = document.getElementById('stick');
+    const joyEl = document.getElementById('joystick');
+    const handleJoy = (e) => {
+        if (!e.touches[0]) return;
+        const rect = joyEl.getBoundingClientRect();
+        const x = e.touches[0].clientX - rect.left - rect.width / 2;
+        const y = e.touches[0].clientY - rect.top - rect.height / 2;
+        const max = rect.width / 2;
+        const dist = Math.sqrt(x * x + y * y);
+        let nx = x, ny = y;
+        if (dist > max) {
+            nx *= max / dist;
+            ny *= max / dist;
+        }
+        joystick.x = nx / max;
+        joystick.y = ny / max;
+        joystick.stick.style.transform = `translate(${nx}px, ${ny}px)`;
+    };
+    joyEl.addEventListener('touchstart', (e) => { joystick.active = true; handleJoy(e); });
+    joyEl.addEventListener('touchmove', handleJoy);
+    joyEl.addEventListener('touchend', () => {
+        joystick.active = false;
+        joystick.x = joystick.y = 0;
+        joystick.stick.style.transform = 'translate(0, 0)';
+    });
+
+    const jumpBtn = document.getElementById('jumpButton');
+    const setJump = (val) => { keys['Space'] = val; };
+    ['touchstart','mousedown'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(true); }));
+    ['touchend','mouseup','mouseleave'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(false); }));
 });
 
 function createPlayerModel() {
@@ -163,6 +195,10 @@ function updatePlayer(delta) {
     if (keys['KeyS']) move.add(forward.clone().negate());
     if (keys['KeyA']) move.add(right.clone().negate());
     if (keys['KeyD']) move.add(right);
+    if (Math.abs(joystick.x) > 0.05 || Math.abs(joystick.y) > 0.05) {
+        move.add(forward.clone().multiplyScalar(-joystick.y));
+        move.add(right.clone().multiplyScalar(joystick.x));
+    }
 
     if (move.lengthSq() > 0) {
         move.normalize().multiplyScalar(moveSpeed * delta);
