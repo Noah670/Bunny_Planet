@@ -10,6 +10,12 @@ const bunnies = [];
 const gravity = 9.8;
 const clock = new THREE.Clock();
 
+let cameraYaw = 0;
+let cameraPitch = 0.3;
+let drag = false;
+let prevX = 0;
+let prevY = 0;
+
 let bunnyCounter;
 let timerDisplay;
 let timer = 250;
@@ -52,6 +58,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const setJump = (val) => { keys['Space'] = val; };
     ['touchstart','mousedown'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(true); }));
     ['touchend','mouseup','mouseleave'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(false); }));
+
+    const canvas = document.getElementById('gameCanvas');
+    canvas.addEventListener('pointerdown', (e) => {
+        if (e.target === joyEl || e.target === jumpBtn) return;
+        drag = true;
+        prevX = e.clientX;
+        prevY = e.clientY;
+    });
+    window.addEventListener('pointermove', (e) => {
+        if (!drag) return;
+        const dx = e.clientX - prevX;
+        const dy = e.clientY - prevY;
+        prevX = e.clientX;
+        prevY = e.clientY;
+        cameraYaw -= dx * 0.005;
+        cameraPitch -= dy * 0.005;
+        const limit = Math.PI / 3;
+        cameraPitch = Math.max(-limit, Math.min(limit, cameraPitch));
+    });
+    window.addEventListener('pointerup', () => { drag = false; });
+    window.addEventListener('pointercancel', () => { drag = false; });
 });
 
 function createPlayerModel() {
@@ -185,8 +212,8 @@ function updatePlayer(delta) {
     const moveSpeed = 3;
 
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const camDir = new THREE.Vector3();
-    camera.getWorldDirection(camDir);
+    const camDir = player.forward.clone().normalize();
+    camDir.applyAxisAngle(up, cameraYaw);
     const right = new THREE.Vector3().crossVectors(camDir, up).normalize();
     const forward = new THREE.Vector3().crossVectors(up, right).normalize();
 
@@ -321,7 +348,12 @@ function updateBunnies(delta) {
 
 function updateCamera() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const offset = player.forward.clone().normalize().multiplyScalar(-5).add(up.clone().multiplyScalar(2));
+    const dir = player.forward.clone().normalize();
+    dir.applyAxisAngle(up, cameraYaw);
+    const right = new THREE.Vector3().crossVectors(dir, up).normalize();
+    dir.applyAxisAngle(right, cameraPitch);
+
+    const offset = dir.clone().multiplyScalar(-5).add(up.clone().multiplyScalar(2));
     camera.position.copy(player.mesh.position).add(offset);
     camera.up.copy(up);
     camera.lookAt(player.mesh.position);

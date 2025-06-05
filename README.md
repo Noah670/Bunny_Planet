@@ -8,6 +8,7 @@ Open `start.html` and press **Start Game** to begin playing.
 
 - **W/A/S/D** — move around the current planet
 - **Space** — jump off the surface
+- Drag anywhere else on the screen to rotate the camera
 - **E** — hop to a nearby planet if one is within reach
 
 Gravity always pulls you back toward the planet you are on.
