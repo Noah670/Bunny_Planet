@@ -1,3 +1,4 @@
+"use strict";
 // Bunny Planet - simple Three.js demo with spherical planets
 
 let scene, camera, renderer;

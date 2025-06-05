@@ -2,7 +2,7 @@
 
 This repo contains a small Three.js demo where you hop across tiny spherical planets to catch mischievous bunnies.
 
-Open `index.html` and press **Start** to begin playing.
+Open `start.html` and press **Start Game** to begin playing.
 
 ## Controls
 
@@ -22,4 +22,4 @@ To publish the site with GitHub Pages:
 2. Under **Pages**, set the branch to `main` and select the `/` root folder.
 3. Save, then visit the URL GitHub provides.
 
-A workflow file is included in `.github/workflows/gh-pages.yml` to automate deployments when pushing to `main`. Add a remote with `git remote add origin <your-repo-url>` then run `git push -u origin main` to deploy.
+A workflow in `.github/workflows/gh-pages.yml` now runs on pushes to **main** or the **work** branch. Push to either branch and GitHub Actions will deploy the site automatically.
