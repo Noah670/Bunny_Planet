@@ -164,7 +164,7 @@ function init() {
     scene.add(new THREE.AmbientLight(0x404040));
 
     // Create some vibrant planets
-    createPlanet(5, new THREE.Vector3(0, 0, 0), 0x88ccff); // home planet
+    createPlanet(5, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
     createPlanet(3, new THREE.Vector3(15, 0, 0), 0xff8888);
     createPlanet(4, new THREE.Vector3(-12, 0, 8), 0x88ff88);
 
@@ -203,7 +203,11 @@ function init() {
 
 function createPlanet(radius, pos, color) {
     const geo = new THREE.SphereGeometry(radius, 32, 32);
-    const mat = new THREE.MeshStandardMaterial({ color });
+    const mat = new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.6,
+        metalness: 0.1
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(pos);
     scene.add(mesh);
@@ -346,7 +350,7 @@ function attemptPlanetHop() {
             target = p;
         }
     }
-    if (target && minDist < 5) {
+    if (target && minDist < 12) {
         player.planet = target;
         player.radialDist = target.radius + 0.5;
         const dir = new THREE.Vector3().subVectors(player.mesh.position, target.position).normalize();

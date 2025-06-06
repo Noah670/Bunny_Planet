@@ -2,7 +2,7 @@
 
 This repo contains a small Three.js demo where you hop across tiny spherical planets to catch mischievous bunnies.
 
-The world features a bright blue gradient skybox and each bunny is now a simple model with a body, head, and floppy ears so they look more like real bunnies.
+The world features a bright blue gradient skybox and each bunny is now a simple model with a body, head, and floppy ears so they look more like real bunnies. The starting planet is a vibrant orange so it stands out against the sky.
 
 Open `start.html` and press **Start Game** to begin playing.
 
@@ -11,7 +11,7 @@ Open `start.html` and press **Start Game** to begin playing.
 - **W/A/S/D** — move around the current planet
 - **Space** — jump off the surface
 - Drag anywhere else on the screen to rotate the camera
-- **E** or **Hop** button — leap to a nearby planet if one is within reach
+- **E** or **Hop** button — instantly hop to the closest planet up to 12 units away
 
 Gravity always pulls you back toward the planet you are on.
 
