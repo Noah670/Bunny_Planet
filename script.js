@@ -68,13 +68,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const jumpBtn = document.getElementById('jumpButton');
+    const hopBtn = document.getElementById('hopButton');
     const setJump = (val) => { keys['Space'] = val; };
     ['touchstart','mousedown'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(true); }));
     ['touchend','mouseup','mouseleave'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(false); }));
 
+    const hopHandler = (e) => { e.preventDefault(); attemptPlanetHop(); };
+    ['touchstart','mousedown'].forEach(ev => hopBtn.addEventListener(ev, hopHandler));
+
     const canvas = document.getElementById('gameCanvas');
     canvas.addEventListener('pointerdown', (e) => {
-        if (e.target === joyEl || e.target === jumpBtn) return;
+        if (e.target === joyEl || e.target === jumpBtn || e.target === hopBtn) return;
         drag = true;
         prevX = e.clientX;
         prevY = e.clientY;
@@ -86,6 +90,8 @@ document.addEventListener('DOMContentLoaded', () => {
         prevX = e.clientX;
         prevY = e.clientY;
         cameraYaw -= dx * 0.005;
+        if (cameraYaw > Math.PI) cameraYaw -= Math.PI * 2;
+        if (cameraYaw < -Math.PI) cameraYaw += Math.PI * 2;
         cameraPitch -= dy * 0.005;
         const limit = Math.PI / 3;
         cameraPitch = Math.max(-limit, Math.min(limit, cameraPitch));
@@ -263,10 +269,10 @@ function updatePlayer(delta) {
     const moveSpeed = 3;
 
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const camDir = player.forward.clone().normalize();
-    camDir.applyAxisAngle(up, cameraYaw);
-    const right = new THREE.Vector3().crossVectors(camDir, up).normalize();
+    const baseForward = new THREE.Vector3(0, 0, -1).applyAxisAngle(up, cameraYaw);
+    const right = new THREE.Vector3().crossVectors(baseForward, up).normalize();
     const forward = new THREE.Vector3().crossVectors(up, right).normalize();
+    player.forward.copy(baseForward);
 
     const move = new THREE.Vector3();
     if (keys['KeyW']) move.add(forward);
@@ -322,8 +328,11 @@ function updatePlayer(delta) {
 
 function orientPlayer() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), up);
-    player.mesh.quaternion.copy(quat);
+    const right = new THREE.Vector3().crossVectors(player.forward, up).normalize();
+    const forward = new THREE.Vector3().crossVectors(up, right).normalize();
+    const m = new THREE.Matrix4();
+    m.makeBasis(right, up, forward);
+    player.mesh.quaternion.setFromRotationMatrix(m);
 }
 
 function attemptPlanetHop() {
@@ -400,7 +409,6 @@ function updateBunnies(delta) {
 function updateCamera() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
     const dir = player.forward.clone().normalize();
-    dir.applyAxisAngle(up, cameraYaw);
     const right = new THREE.Vector3().crossVectors(dir, up).normalize();
     dir.applyAxisAngle(right, cameraPitch);
 

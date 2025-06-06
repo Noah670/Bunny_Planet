@@ -69,7 +69,7 @@
             border-radius: 50%;
             transform: translate(0, 0);
         }
-        #jumpButton {
+        #jumpButton, #hopButton {
             position: absolute;
             bottom: 40px;
             right: 30px;
@@ -82,6 +82,7 @@
             font-size: 20px;
             touch-action: none;
         }
+        #hopButton { bottom: 130px; }
     </style>
 </head>
 <body>
@@ -99,6 +100,7 @@
     <div id="timer">Time: <span id="timerVal">250</span>s</div>
     <div id="joystick"><div id="stick"></div></div>
     <button id="jumpButton">Jump</button>
+    <button id="hopButton">Hop</button>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="script.js"></script>

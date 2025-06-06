@@ -11,11 +11,11 @@ Open `start.html` and press **Start Game** to begin playing.
 - **W/A/S/D** — move around the current planet
 - **Space** — jump off the surface
 - Drag anywhere else on the screen to rotate the camera
-- **E** — hop to a nearby planet if one is within reach
+- **E** or **Hop** button — leap to a nearby planet if one is within reach
 
 Gravity always pulls you back toward the planet you are on.
 
-On touch screens, a joystick appears in the lower-left corner and a **Jump** button in the lower-right so you can play on mobile devices.
+On touch screens, a joystick appears in the lower-left corner with **Jump** and **Hop** buttons on the right so you can play on mobile devices.
 
 Catch all five bunnies before the **250 second** timer expires to win the level. Bunnies will dart away if you get too close. The counter in the corner shows how many remain. After you catch them all, a completion screen lets you restart or return to the title.
 
