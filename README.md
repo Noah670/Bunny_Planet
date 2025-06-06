@@ -13,10 +13,9 @@ Open `start.html` and press **Start Game** to begin playing.
 
 Gravity always pulls you back toward the planet you are on.
 
-On touch screens, a joystick appears in the lower-left corner and a **Jump**
-button in the lower-right so you can play on mobile devices.
+On touch screens, a joystick appears in the lower-left corner and a **Jump** button in the lower-right so you can play on mobile devices.
 
-Catch every bunny to complete the level. Bunnies will dart away if you get too close. The counter in the corner shows how many remain. You also have **250 seconds** to catch them all, displayed in the top right.
+Catch all five bunnies before the **250 second** timer expires to win the level. Bunnies will dart away if you get too close. The counter in the corner shows how many remain. After you catch them all, a completion screen lets you restart or return to the title.
 
 ## GitHub Pages
 

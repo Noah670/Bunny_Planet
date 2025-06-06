@@ -23,7 +23,7 @@
             font-family: Arial, sans-serif;
             z-index: 10;
         }
-        #startScreen {
+        #startScreen, #completeScreen {
             position: absolute;
             top: 0;
             left: 0;
@@ -38,7 +38,7 @@
             font-family: Arial, sans-serif;
             z-index: 20;
         }
-        #startButton {
+        #startButton, #restartButton, #titleButton {
             padding: 15px 30px;
             margin-top: 20px;
             background: #ff6ec7;
@@ -47,6 +47,7 @@
             color: #fff;
             font-size: 24px;
             cursor: pointer;
+            text-decoration: none;
         }
         #joystick {
             position: absolute;
@@ -87,6 +88,11 @@
     <div id="startScreen">
         <h1>Bunny Planet</h1>
         <button id="startButton">Start</button>
+    </div>
+    <div id="completeScreen" style="display:none;">
+        <h1 id="completeMessage">Planet Completed!</h1>
+        <button id="restartButton">Restart</button>
+        <a id="titleButton" href="start.html">Title Screen</a>
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="ui">Bunnies left: <span id="bunnyCount">0</span></div>

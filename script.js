@@ -19,6 +19,15 @@ let prevY = 0;
 let bunnyCounter;
 let timerDisplay;
 let timer = 250;
+let gameOver = false;
+
+function showComplete(win) {
+    gameOver = true;
+    const screen = document.getElementById('completeScreen');
+    const msg = document.getElementById('completeMessage');
+    msg.textContent = win ? 'Planet Completed!' : 'Time\'s up!';
+    screen.style.display = 'flex';
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('startButton');
@@ -26,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('startScreen').style.display = 'none';
         init();
         animate();
+    });
+
+    document.getElementById('restartButton').addEventListener('click', () => {
+        window.location.reload();
     });
 
     joystick.stick = document.getElementById('stick');
@@ -271,7 +284,7 @@ function updatePlayer(delta) {
 
 function orientPlayer() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), up);
     player.mesh.quaternion.copy(quat);
 }
 
@@ -304,7 +317,7 @@ function updateBunnyPosition(bunny) {
     const z = planetPos.z + r * Math.cos(bunny.lat) * Math.sin(bunny.lon);
     bunny.mesh.position.set(x, y, z);
     const up = new THREE.Vector3().subVectors(bunny.mesh.position, planetPos).normalize();
-    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+    const quat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), up);
     bunny.mesh.quaternion.copy(quat);
 }
 
@@ -340,7 +353,7 @@ function updateBunnies(delta) {
             bunnies.splice(i, 1);
             bunnyCounter.textContent = bunnies.length;
             if (bunnies.length === 0) {
-                document.getElementById('ui').textContent = 'All bunnies caught!';
+                showComplete(true);
             }
         }
     }
@@ -362,13 +375,18 @@ function updateCamera() {
 function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
-    updatePlayer(delta);
-    updateBunnies(delta);
+
+    if (!gameOver) {
+        updatePlayer(delta);
+        updateBunnies(delta);
+        timer -= delta;
+        if (timer <= 0) {
+            timer = 0;
+            showComplete(false);
+        }
+    }
+
     updateCamera();
-
-    timer -= delta;
-    if (timer < 0) timer = 0;
     if (timerDisplay) timerDisplay.textContent = Math.ceil(timer);
-
     renderer.render(scene, camera);
 }
