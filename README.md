@@ -2,6 +2,8 @@
 
 This repo contains a small Three.js demo where you hop across tiny spherical planets to catch mischievous bunnies.
 
+The world features a bright blue gradient skybox and each bunny is now a simple model with a body, head, and floppy ears so they look more like real bunnies.
+
 Open `start.html` and press **Start Game** to begin playing.
 
 ## Controls

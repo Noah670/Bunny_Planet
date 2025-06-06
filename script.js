@@ -122,6 +122,22 @@ function createPlayerModel() {
     return group;
 }
 
+function createSky() {
+    const geometry = new THREE.SphereGeometry(100, 32, 32);
+    const material = new THREE.ShaderMaterial({
+        uniforms: {
+            topColor: { value: new THREE.Color(0x87ceff) },
+            bottomColor: { value: new THREE.Color(0xb0e0ff) }
+        },
+        vertexShader: `varying vec3 vPos; void main(){vPos=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `varying vec3 vPos; uniform vec3 topColor; uniform vec3 bottomColor; void main(){float h=normalize(vPos).y; gl_FragColor=vec4(mix(bottomColor, topColor, max(h,0.0)),1.0);}`,
+        side: THREE.BackSide,
+        depthWrite: false
+    });
+    const sky = new THREE.Mesh(geometry, material);
+    scene.add(sky);
+}
+
 function init() {
     const canvas = document.getElementById('gameCanvas');
     renderer = new THREE.WebGLRenderer({ canvas });
@@ -131,6 +147,7 @@ function init() {
     timerDisplay = document.getElementById('timerVal');
 
     scene = new THREE.Scene();
+    createSky();
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 10);
@@ -187,10 +204,31 @@ function createPlanet(radius, pos, color) {
     planets.push({ mesh, radius, position: pos });
 }
 
+function createBunnyModel() {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const body = new THREE.SphereGeometry(0.25, 16, 16);
+    const bodyMesh = new THREE.Mesh(body, mat);
+    bodyMesh.position.y = 0.25;
+    group.add(bodyMesh);
+
+    const head = new THREE.SphereGeometry(0.18, 16, 16);
+    const headMesh = new THREE.Mesh(head, mat);
+    headMesh.position.y = 0.55;
+    group.add(headMesh);
+
+    const earGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8);
+    const ear1 = new THREE.Mesh(earGeo, mat);
+    ear1.position.set(-0.07, 0.8, 0);
+    group.add(ear1);
+    const ear2 = ear1.clone();
+    ear2.position.x = 0.07;
+    group.add(ear2);
+    return group;
+}
+
 function createBunny(planet) {
-    const geo = new THREE.SphereGeometry(0.3, 16, 16);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffc0cb });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = createBunnyModel();
     scene.add(mesh);
     const bunny = {
         mesh,
