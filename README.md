@@ -12,12 +12,15 @@ Open `start.html` and press **Start Game** to begin playing.
 - **Space** — jump off the surface
 - Drag anywhere else on the screen to rotate the camera
 - **E** or **Hop** button — instantly hop to the closest planet up to 12 units away
+- **F** or **Tongue** button — snag bunnies with a stretchy tongue (only after picking up the power‑up)
 
 Gravity always pulls you back toward the planet you are on.
 
 On touch screens, a joystick appears in the lower-left corner with **Jump** and **Hop** buttons on the right so you can play on mobile devices.
 
 Catch all five bunnies before the **250 second** timer expires to win the level. Bunnies will dart away if you get too close. The counter in the corner shows how many remain. After you catch them all, a completion screen lets you restart or return to the title.
+
+Spinning item boxes appear around the planets. Touch one to hear a slot‑machine jingle and gain a random power‑up like a speed boost or the tongue ability.
 
 ## GitHub Pages
 

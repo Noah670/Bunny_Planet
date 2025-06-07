@@ -7,6 +7,8 @@ const keys = {};
 const joystick = { x: 0, y: 0, active: false, stick: null };
 const planets = [];
 const bunnies = [];
+const itemBoxes = [];
+let audioCtx;
 const gravity = 9.8;
 const clock = new THREE.Clock();
 
@@ -18,6 +20,7 @@ let prevY = 0;
 
 let bunnyCounter;
 let timerDisplay;
+let tongueBtn;
 let timer = 250;
 let gameOver = false;
 
@@ -30,6 +33,7 @@ function showComplete(win) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const startBtn = document.getElementById('startButton');
     startBtn.addEventListener('click', () => {
         document.getElementById('startScreen').style.display = 'none';
@@ -69,6 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const jumpBtn = document.getElementById('jumpButton');
     const hopBtn = document.getElementById('hopButton');
+    tongueBtn = document.getElementById('tongueButton');
     const setJump = (val) => { keys['Space'] = val; };
     ['touchstart','mousedown'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(true); }));
     ['touchend','mouseup','mouseleave'].forEach(ev => jumpBtn.addEventListener(ev, (e)=>{ e.preventDefault(); setJump(false); }));
@@ -76,9 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const hopHandler = (e) => { e.preventDefault(); attemptPlanetHop(); };
     ['touchstart','mousedown'].forEach(ev => hopBtn.addEventListener(ev, hopHandler));
 
+    const tongueHandler = (e) => { e.preventDefault(); useTongue(); };
+    ['touchstart','mousedown'].forEach(ev => tongueBtn.addEventListener(ev, tongueHandler));
+
     const canvas = document.getElementById('gameCanvas');
     canvas.addEventListener('pointerdown', (e) => {
-        if (e.target === joyEl || e.target === jumpBtn || e.target === hopBtn) return;
+        if (e.target === joyEl || e.target === jumpBtn || e.target === hopBtn || e.target === tongueBtn) return;
         drag = true;
         prevX = e.clientX;
         prevY = e.clientY;
@@ -175,6 +183,11 @@ function init() {
     createBunny(planets[2]);
     createBunny(planets[2]);
 
+    // Add a few spinning item boxes
+    createItemBox(planets[0]);
+    createItemBox(planets[1]);
+    createItemBox(planets[2]);
+
     bunnyCounter.textContent = bunnies.length;
 
     // Player model
@@ -191,7 +204,9 @@ function init() {
         radialDist: startPlanet.radius + 0.5,
         radialVel: 0,
         canJump: true,
-        forward: new THREE.Vector3(0, 0, -1)
+        forward: new THREE.Vector3(0, 0, -1),
+        speedBoostTime: 0,
+        tongueTime: 0
     };
 
     orientPlayer();
@@ -263,6 +278,7 @@ function onResize() {
 function onKeyDown(e) {
     keys[e.code] = true;
     if (e.code === 'KeyE') attemptPlanetHop();
+    if (e.code === 'KeyF') useTongue();
 }
 
 function onKeyUp(e) {
@@ -270,7 +286,9 @@ function onKeyUp(e) {
 }
 
 function updatePlayer(delta) {
-    const moveSpeed = 3;
+    if (player.speedBoostTime > 0) player.speedBoostTime -= delta;
+    if (player.tongueTime > 0) player.tongueTime -= delta;
+    const moveSpeed = player.speedBoostTime > 0 ? 6 : 3;
 
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
     const baseForward = new THREE.Vector3(0, 0, -1).applyAxisAngle(up, cameraYaw);
@@ -337,6 +355,33 @@ function orientPlayer() {
     const m = new THREE.Matrix4();
     m.makeBasis(right, up, forward);
     player.mesh.quaternion.setFromRotationMatrix(m);
+}
+
+function useTongue() {
+    if (player.tongueTime <= 0) return;
+    const range = 3;
+    const dir = player.forward.clone().normalize();
+    const start = player.mesh.position.clone().add(dir.clone().multiplyScalar(0.8));
+    const end = start.clone().add(dir.clone().multiplyScalar(range));
+    const geo = new THREE.CylinderGeometry(0.05, 0.05, range, 8);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xff8080 });
+    const tongue = new THREE.Mesh(geo, mat);
+    tongue.position.copy(start.clone().add(end).multiplyScalar(0.5));
+    tongue.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+    scene.add(tongue);
+    setTimeout(() => scene.remove(tongue), 200);
+
+    for (let i = bunnies.length - 1; i >= 0; i--) {
+        const b = bunnies[i];
+        const dist = b.mesh.position.distanceTo(start);
+        const angle = dir.dot(new THREE.Vector3().subVectors(b.mesh.position, start).normalize());
+        if (dist <= range && angle > 0.7) {
+            scene.remove(b.mesh);
+            bunnies.splice(i, 1);
+            bunnyCounter.textContent = bunnies.length;
+            if (bunnies.length === 0) showComplete(true);
+        }
+    }
 }
 
 function attemptPlanetHop() {
@@ -410,6 +455,67 @@ function updateBunnies(delta) {
     }
 }
 
+function createItemBox(planet) {
+    const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300 });
+    const mesh = new THREE.Mesh(geo, mat);
+    const box = {
+        mesh,
+        planet,
+        lon: Math.random() * Math.PI * 2,
+        lat: (Math.random() - 0.5) * 1.2,
+        radialDist: planet.radius + 0.6
+    };
+    scene.add(mesh);
+    itemBoxes.push(box);
+    updateItemBoxPosition(box);
+}
+
+function updateItemBoxPosition(box) {
+    const planetPos = box.planet.position;
+    const r = box.radialDist;
+    const x = planetPos.x + r * Math.cos(box.lat) * Math.cos(box.lon);
+    const y = planetPos.y + r * Math.sin(box.lat);
+    const z = planetPos.z + r * Math.cos(box.lat) * Math.sin(box.lon);
+    box.mesh.position.set(x, y, z);
+    const up = new THREE.Vector3().subVectors(box.mesh.position, planetPos).normalize();
+    box.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), up);
+}
+
+function playItemSound() {
+    if (!audioCtx) return;
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(880, audioCtx.currentTime);
+    o.connect(g);
+    g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+    o.stop(audioCtx.currentTime + 0.3);
+}
+
+function grantRandomPowerUp() {
+    if (Math.random() < 0.5) {
+        player.speedBoostTime = 8;
+    } else {
+        player.tongueTime = 8;
+    }
+}
+
+function updateItemBoxes(delta) {
+    for (let i = itemBoxes.length - 1; i >= 0; i--) {
+        const box = itemBoxes[i];
+        box.mesh.rotation.y += delta * 5;
+        if (player.mesh.position.distanceTo(box.mesh.position) < 1) {
+            scene.remove(box.mesh);
+            itemBoxes.splice(i, 1);
+            playItemSound();
+            grantRandomPowerUp();
+        }
+    }
+}
+
 function updateCamera() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
     const dir = player.forward.clone().normalize();
@@ -429,6 +535,7 @@ function animate() {
     if (!gameOver) {
         updatePlayer(delta);
         updateBunnies(delta);
+        updateItemBoxes(delta);
         timer -= delta;
         if (timer <= 0) {
             timer = 0;
@@ -438,5 +545,6 @@ function animate() {
 
     updateCamera();
     if (timerDisplay) timerDisplay.textContent = Math.ceil(timer);
+    if (tongueBtn) tongueBtn.style.display = player.tongueTime > 0 ? 'block' : 'none';
     renderer.render(scene, camera);
 }

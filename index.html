@@ -69,7 +69,7 @@
             border-radius: 50%;
             transform: translate(0, 0);
         }
-        #jumpButton, #hopButton {
+        #jumpButton, #hopButton, #tongueButton {
             position: absolute;
             bottom: 40px;
             right: 30px;
@@ -83,6 +83,10 @@
             touch-action: none;
         }
         #hopButton { bottom: 130px; }
+        #tongueButton {
+            bottom: 220px;
+            background: rgba(255,200,50,0.9);
+        }
     </style>
 </head>
 <body>
@@ -101,6 +105,7 @@
     <div id="joystick"><div id="stick"></div></div>
     <button id="jumpButton">Jump</button>
     <button id="hopButton">Hop</button>
+    <button id="tongueButton" style="display:none;">Tongue</button>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="script.js"></script>
