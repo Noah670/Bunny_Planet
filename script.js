@@ -114,25 +114,43 @@ function createPlayerModel() {
     const group = new THREE.Group();
 
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3355ff });
-    const bodyGeo = new THREE.BoxGeometry(0.4, 0.6, 0.2);
+    const fleshMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+
+    const bodyGeo = new THREE.CylinderGeometry(0.22, 0.25, 0.8, 16);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.3;
+    body.position.y = 0.6;
     group.add(body);
 
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
     const headGeo = new THREE.SphereGeometry(0.25, 16, 16);
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 0.8;
+    const head = new THREE.Mesh(headGeo, fleshMat);
+    head.position.y = 1.1;
     group.add(head);
 
+    const armGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 12);
+    const armL = new THREE.Mesh(armGeo, bodyMat);
+    armL.position.set(-0.35, 0.9, 0);
+    armL.rotation.z = Math.PI / 2;
+    group.add(armL);
+    const armR = armL.clone();
+    armR.position.x = 0.35;
+    group.add(armR);
+
+    const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 12);
+    const legL = new THREE.Mesh(legGeo, bodyMat);
+    legL.position.set(-0.15, 0.25, 0);
+    group.add(legL);
+    const legR = legL.clone();
+    legR.position.x = 0.15;
+    group.add(legR);
+
     const hatMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const brimGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.05, 16);
+    const brimGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 16);
     const brim = new THREE.Mesh(brimGeo, hatMat);
-    brim.position.y = 1.05;
+    brim.position.y = 1.3;
     group.add(brim);
-    const hatGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.2, 16);
+    const hatGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.25, 16);
     const hat = new THREE.Mesh(hatGeo, hatMat);
-    hat.position.y = 1.15;
+    hat.position.y = 1.45;
     group.add(hat);
 
     return group;
@@ -352,11 +370,14 @@ function updatePlayer(delta) {
 
 function orientPlayer() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const right = new THREE.Vector3().crossVectors(player.forward, up).normalize();
-    const forward = new THREE.Vector3().crossVectors(up, right).normalize();
-    const m = new THREE.Matrix4();
-    m.makeBasis(right, up, forward);
-    player.mesh.quaternion.setFromRotationMatrix(m);
+    // Ensure forward is tangent to the surface
+    const forward = player.forward.clone().projectOnPlane(up).normalize();
+    if (forward.lengthSq() === 0) {
+        forward.set(0, 0, -1).applyAxisAngle(up, cameraYaw);
+    }
+    const target = player.mesh.position.clone().add(forward);
+    player.mesh.up.copy(up);
+    player.mesh.lookAt(target);
 }
 
 function useTongue() {
