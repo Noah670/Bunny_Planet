@@ -8,6 +8,8 @@ const joystick = { x: 0, y: 0, active: false, stick: null };
 const planets = [];
 const bunnies = [];
 const itemBoxes = [];
+const spinningItems = [];
+let questionTexture;
 let audioCtx;
 const gravity = 9.8;
 const clock = new THREE.Clock();
@@ -172,9 +174,9 @@ function init() {
     scene.add(new THREE.AmbientLight(0x404040));
 
     // Create some vibrant planets
-    createPlanet(5, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
-    createPlanet(3, new THREE.Vector3(15, 0, 0), 0xff8888);
-    createPlanet(4, new THREE.Vector3(-12, 0, 8), 0x88ff88);
+    createPlanet(7, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
+    createPlanet(5, new THREE.Vector3(18, 0, 0), 0xff8888);
+    createPlanet(6, new THREE.Vector3(-15, 0, 10), 0x88ff88);
 
     // Spawn some mischievous bunnies
     createBunny(planets[0]);
@@ -395,7 +397,7 @@ function attemptPlanetHop() {
             target = p;
         }
     }
-    if (target && minDist < 12) {
+    if (target && minDist < 15) {
         player.planet = target;
         player.radialDist = target.radius + 0.5;
         const dir = new THREE.Vector3().subVectors(player.mesh.position, target.position).normalize();
@@ -455,9 +457,32 @@ function updateBunnies(delta) {
     }
 }
 
+function getQuestionTexture() {
+    if (questionTexture) return questionTexture;
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f7d64a';
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = '#d1941d';
+    ctx.fillRect(0, 0, 64, 8);
+    ctx.fillRect(0, 0, 8, 64);
+    ctx.fillRect(56, 0, 8, 64);
+    ctx.fillRect(0, 56, 64, 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', 32, 34);
+    questionTexture = new THREE.CanvasTexture(canvas);
+    return questionTexture;
+}
+
 function createItemBox(planet) {
     const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300 });
+    const tex = getQuestionTexture();
+    const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0x333300 });
     const mesh = new THREE.Mesh(geo, mat);
     const box = {
         mesh,
@@ -496,9 +521,14 @@ function playItemSound() {
 }
 
 function grantRandomPowerUp() {
-    if (Math.random() < 0.5) {
+    const type = Math.random() < 0.5 ? 'speed' : 'tongue';
+    grantPowerUp(type);
+}
+
+function grantPowerUp(type) {
+    if (type === 'speed') {
         player.speedBoostTime = 8;
-    } else {
+    } else if (type === 'tongue') {
         player.tongueTime = 8;
     }
 }
@@ -511,7 +541,32 @@ function updateItemBoxes(delta) {
             scene.remove(box.mesh);
             itemBoxes.splice(i, 1);
             playItemSound();
-            grantRandomPowerUp();
+            const type = Math.random() < 0.5 ? 'speed' : 'tongue';
+            createPowerItem(type, box.mesh.position.clone());
+        }
+    }
+}
+
+function createPowerItem(type, pos) {
+    const color = type === 'speed' ? 0x00ff00 : 0xff80c0;
+    const geo = new THREE.IcosahedronGeometry(0.3, 0);
+    const mat = new THREE.MeshStandardMaterial({ color, emissive: 0x222222 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    spinningItems.push({ mesh, type, timer: 1 });
+}
+
+function updateSpinningItems(delta) {
+    for (let i = spinningItems.length - 1; i >= 0; i--) {
+        const item = spinningItems[i];
+        item.mesh.rotation.y += delta * 6;
+        item.mesh.position.y += delta;
+        item.timer -= delta;
+        if (item.timer <= 0 || player.mesh.position.distanceTo(item.mesh.position) < 1) {
+            grantPowerUp(item.type);
+            scene.remove(item.mesh);
+            spinningItems.splice(i, 1);
         }
     }
 }
@@ -536,6 +591,7 @@ function animate() {
         updatePlayer(delta);
         updateBunnies(delta);
         updateItemBoxes(delta);
+        updateSpinningItems(delta);
         timer -= delta;
         if (timer <= 0) {
             timer = 0;
