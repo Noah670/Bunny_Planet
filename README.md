@@ -4,6 +4,8 @@ This repo contains a small Three.js demo where you hop across tiny spherical pla
 
 The world features a bright blue gradient skybox and each bunny is now a simple model with a body, head, and floppy ears so they look more like real bunnies. The starting planet is a vibrant orange so it stands out against the sky.
 
+The player has a small humanoid model complete with arms, legs, and a hat. Movement and orientation have been tweaked so the avatar stays upright on the planets.
+
 Open `start.html` and press **Start Game** to begin playing.
 
 ## Controls
@@ -11,7 +13,7 @@ Open `start.html` and press **Start Game** to begin playing.
 - **W/A/S/D** — move around the current planet
 - **Space** — jump off the surface
 - Drag anywhere else on the screen to rotate the camera
-- **E** or **Hop** button — instantly hop to the closest planet up to 12 units away
+- **E** or **Hop** button — instantly hop to the closest planet up to 15 units away
 - **F** or **Tongue** button — snag bunnies with a stretchy tongue (only after picking up the power‑up)
 
 Gravity always pulls you back toward the planet you are on.
@@ -20,7 +22,7 @@ On touch screens, a joystick appears in the lower-left corner with **Jump** and 
 
 Catch all five bunnies before the **250 second** timer expires to win the level. Bunnies will dart away if you get too close. The counter in the corner shows how many remain. After you catch them all, a completion screen lets you restart or return to the title.
 
-Spinning item boxes appear around the planets. Touch one to hear a slot‑machine jingle and gain a random power‑up like a speed boost or the tongue ability.
+Question‑mark item boxes float above the planets. Touch one and an item pops out, spinning briefly before granting a random power‑up like a speed boost or the tongue ability.
 
 ## GitHub Pages
 
@@ -31,3 +33,19 @@ To publish the site with GitHub Pages:
 3. Save, then visit the URL GitHub provides.
 
 A workflow in `.github/workflows/gh-pages.yml` now runs on pushes to **main** or the **work** branch. Push to either branch and GitHub Actions will deploy the site automatically.
+
+## Netlify Deployment
+
+You can also host the demo on [Netlify](https://www.netlify.com/). Install the CLI with:
+
+```bash
+npm install -g netlify-cli
+```
+
+Run `netlify login` once to authenticate and then deploy the current folder:
+
+```bash
+netlify deploy --prod --dir .
+```
+
+The URL that Netlify prints is where your game will be live.

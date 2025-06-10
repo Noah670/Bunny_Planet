@@ -8,6 +8,8 @@ const joystick = { x: 0, y: 0, active: false, stick: null };
 const planets = [];
 const bunnies = [];
 const itemBoxes = [];
+const spinningItems = [];
+let questionTexture;
 let audioCtx;
 const gravity = 9.8;
 const clock = new THREE.Clock();
@@ -112,25 +114,43 @@ function createPlayerModel() {
     const group = new THREE.Group();
 
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3355ff });
-    const bodyGeo = new THREE.BoxGeometry(0.4, 0.6, 0.2);
+    const fleshMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
+
+    const bodyGeo = new THREE.CylinderGeometry(0.22, 0.25, 0.8, 16);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.3;
+    body.position.y = 0.6;
     group.add(body);
 
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
     const headGeo = new THREE.SphereGeometry(0.25, 16, 16);
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 0.8;
+    const head = new THREE.Mesh(headGeo, fleshMat);
+    head.position.y = 1.1;
     group.add(head);
 
+    const armGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 12);
+    const armL = new THREE.Mesh(armGeo, bodyMat);
+    armL.position.set(-0.35, 0.9, 0);
+    armL.rotation.z = Math.PI / 2;
+    group.add(armL);
+    const armR = armL.clone();
+    armR.position.x = 0.35;
+    group.add(armR);
+
+    const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 12);
+    const legL = new THREE.Mesh(legGeo, bodyMat);
+    legL.position.set(-0.15, 0.25, 0);
+    group.add(legL);
+    const legR = legL.clone();
+    legR.position.x = 0.15;
+    group.add(legR);
+
     const hatMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const brimGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.05, 16);
+    const brimGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 16);
     const brim = new THREE.Mesh(brimGeo, hatMat);
-    brim.position.y = 1.05;
+    brim.position.y = 1.3;
     group.add(brim);
-    const hatGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.2, 16);
+    const hatGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.25, 16);
     const hat = new THREE.Mesh(hatGeo, hatMat);
-    hat.position.y = 1.15;
+    hat.position.y = 1.45;
     group.add(hat);
 
     return group;
@@ -172,9 +192,9 @@ function init() {
     scene.add(new THREE.AmbientLight(0x404040));
 
     // Create some vibrant planets
-    createPlanet(5, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
-    createPlanet(3, new THREE.Vector3(15, 0, 0), 0xff8888);
-    createPlanet(4, new THREE.Vector3(-12, 0, 8), 0x88ff88);
+    createPlanet(7, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
+    createPlanet(5, new THREE.Vector3(18, 0, 0), 0xff8888);
+    createPlanet(6, new THREE.Vector3(-15, 0, 10), 0x88ff88);
 
     // Spawn some mischievous bunnies
     createBunny(planets[0]);
@@ -350,11 +370,14 @@ function updatePlayer(delta) {
 
 function orientPlayer() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const right = new THREE.Vector3().crossVectors(player.forward, up).normalize();
-    const forward = new THREE.Vector3().crossVectors(up, right).normalize();
-    const m = new THREE.Matrix4();
-    m.makeBasis(right, up, forward);
-    player.mesh.quaternion.setFromRotationMatrix(m);
+    // Ensure forward is tangent to the surface
+    const forward = player.forward.clone().projectOnPlane(up).normalize();
+    if (forward.lengthSq() === 0) {
+        forward.set(0, 0, -1).applyAxisAngle(up, cameraYaw);
+    }
+    const target = player.mesh.position.clone().add(forward);
+    player.mesh.up.copy(up);
+    player.mesh.lookAt(target);
 }
 
 function useTongue() {
@@ -395,7 +418,7 @@ function attemptPlanetHop() {
             target = p;
         }
     }
-    if (target && minDist < 12) {
+    if (target && minDist < 15) {
         player.planet = target;
         player.radialDist = target.radius + 0.5;
         const dir = new THREE.Vector3().subVectors(player.mesh.position, target.position).normalize();
@@ -455,9 +478,32 @@ function updateBunnies(delta) {
     }
 }
 
+function getQuestionTexture() {
+    if (questionTexture) return questionTexture;
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f7d64a';
+    ctx.fillRect(0, 0, 64, 64);
+    ctx.fillStyle = '#d1941d';
+    ctx.fillRect(0, 0, 64, 8);
+    ctx.fillRect(0, 0, 8, 64);
+    ctx.fillRect(56, 0, 8, 64);
+    ctx.fillRect(0, 56, 64, 8);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', 32, 34);
+    questionTexture = new THREE.CanvasTexture(canvas);
+    return questionTexture;
+}
+
 function createItemBox(planet) {
     const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300 });
+    const tex = getQuestionTexture();
+    const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0x333300 });
     const mesh = new THREE.Mesh(geo, mat);
     const box = {
         mesh,
@@ -496,9 +542,14 @@ function playItemSound() {
 }
 
 function grantRandomPowerUp() {
-    if (Math.random() < 0.5) {
+    const type = Math.random() < 0.5 ? 'speed' : 'tongue';
+    grantPowerUp(type);
+}
+
+function grantPowerUp(type) {
+    if (type === 'speed') {
         player.speedBoostTime = 8;
-    } else {
+    } else if (type === 'tongue') {
         player.tongueTime = 8;
     }
 }
@@ -511,7 +562,32 @@ function updateItemBoxes(delta) {
             scene.remove(box.mesh);
             itemBoxes.splice(i, 1);
             playItemSound();
-            grantRandomPowerUp();
+            const type = Math.random() < 0.5 ? 'speed' : 'tongue';
+            createPowerItem(type, box.mesh.position.clone());
+        }
+    }
+}
+
+function createPowerItem(type, pos) {
+    const color = type === 'speed' ? 0x00ff00 : 0xff80c0;
+    const geo = new THREE.IcosahedronGeometry(0.3, 0);
+    const mat = new THREE.MeshStandardMaterial({ color, emissive: 0x222222 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    spinningItems.push({ mesh, type, timer: 1 });
+}
+
+function updateSpinningItems(delta) {
+    for (let i = spinningItems.length - 1; i >= 0; i--) {
+        const item = spinningItems[i];
+        item.mesh.rotation.y += delta * 6;
+        item.mesh.position.y += delta;
+        item.timer -= delta;
+        if (item.timer <= 0 || player.mesh.position.distanceTo(item.mesh.position) < 1) {
+            grantPowerUp(item.type);
+            scene.remove(item.mesh);
+            spinningItems.splice(i, 1);
         }
     }
 }
@@ -536,6 +612,7 @@ function animate() {
         updatePlayer(delta);
         updateBunnies(delta);
         updateItemBoxes(delta);
+        updateSpinningItems(delta);
         timer -= delta;
         if (timer <= 0) {
             timer = 0;
