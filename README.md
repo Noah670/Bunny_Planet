@@ -31,3 +31,19 @@ To publish the site with GitHub Pages:
 3. Save, then visit the URL GitHub provides.
 
 A workflow in `.github/workflows/gh-pages.yml` now runs on pushes to **main** or the **work** branch. Push to either branch and GitHub Actions will deploy the site automatically.
+
+## Netlify Deployment
+
+You can also host the demo on [Netlify](https://www.netlify.com/). Install the CLI with:
+
+```bash
+npm install -g netlify-cli
+```
+
+Run `netlify login` once to authenticate and then deploy the current folder:
+
+```bash
+netlify deploy --prod --dir .
+```
+
+The URL that Netlify prints is where your game will be live.
