@@ -314,7 +314,7 @@ function updatePlayer(delta) {
     const baseForward = new THREE.Vector3(0, 0, -1).applyAxisAngle(up, cameraYaw);
     const right = new THREE.Vector3().crossVectors(baseForward, up).normalize();
     const forward = new THREE.Vector3().crossVectors(up, right).normalize();
-    player.forward.copy(baseForward);
+    player.forward.copy(forward);
 
     const move = new THREE.Vector3();
     if (keys['KeyW']) move.add(forward);
