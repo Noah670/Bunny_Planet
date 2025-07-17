@@ -1,6 +1,6 @@
 # Bunny Planet
 
-This repo contains a small Three.js demo where you hop across tiny spherical planets to catch mischievous bunnies.
+This repo contains a small Three.js demo where you hop across larger spherical planets to catch mischievous bunnies.
 
 The world features a bright blue gradient skybox and each bunny is now a simple model with a body, head, and floppy ears so they look more like real bunnies. The starting planet is a vibrant orange so it stands out against the sky.
 
@@ -11,7 +11,7 @@ Open `start.html` and press **Start Game** to begin playing.
 - **W/A/S/D** — move around the current planet
 - **Space** — jump off the surface
 - Drag anywhere else on the screen to rotate the camera
-- **E** or **Hop** button — instantly hop to the closest planet up to 12 units away
+- **E** or **Hop** button — instantly hop to the closest planet up to 20 units away
 - **F** or **Tongue** button — snag bunnies with a stretchy tongue (only after picking up the power‑up)
 
 Gravity always pulls you back toward the planet you are on.
@@ -20,7 +20,7 @@ On touch screens, a joystick appears in the lower-left corner with **Jump** and 
 
 Catch all five bunnies before the **250 second** timer expires to win the level. Bunnies will dart away if you get too close. The counter in the corner shows how many remain. After you catch them all, a completion screen lets you restart or return to the title.
 
-Spinning item boxes appear around the planets. Touch one to hear a slot‑machine jingle and gain a random power‑up like a speed boost or the tongue ability.
+Spinning **question blocks** appear around the planets. Touch one to hear a slot‑machine jingle and gain a random power‑up like a speed boost or the tongue ability.
 
 ## GitHub Pages
 

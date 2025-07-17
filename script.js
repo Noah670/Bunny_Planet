@@ -9,6 +9,7 @@ const planets = [];
 const bunnies = [];
 const itemBoxes = [];
 let audioCtx;
+let questionTexture;
 const gravity = 9.8;
 const clock = new THREE.Clock();
 
@@ -136,6 +137,24 @@ function createPlayerModel() {
     return group;
 }
 
+function createQuestionTexture() {
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(0, 0, size, size);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, size - 4, size - 4);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 40px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', size / 2, size / 2 + 2);
+    return new THREE.CanvasTexture(canvas);
+}
+
 function createSky() {
     const geometry = new THREE.SphereGeometry(100, 32, 32);
     const material = new THREE.ShaderMaterial({
@@ -162,6 +181,7 @@ function init() {
 
     scene = new THREE.Scene();
     createSky();
+    questionTexture = createQuestionTexture();
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 10);
@@ -171,10 +191,10 @@ function init() {
     scene.add(light);
     scene.add(new THREE.AmbientLight(0x404040));
 
-    // Create some vibrant planets
-    createPlanet(5, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
-    createPlanet(3, new THREE.Vector3(15, 0, 0), 0xff8888);
-    createPlanet(4, new THREE.Vector3(-12, 0, 8), 0x88ff88);
+    // Create some vibrant, larger planets
+    createPlanet(8, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
+    createPlanet(6, new THREE.Vector3(20, 0, 0), 0xff8888);
+    createPlanet(7, new THREE.Vector3(-16, 0, 10), 0x88ff88);
 
     // Spawn some mischievous bunnies
     createBunny(planets[0]);
@@ -395,7 +415,7 @@ function attemptPlanetHop() {
             target = p;
         }
     }
-    if (target && minDist < 12) {
+    if (target && minDist < 20) {
         player.planet = target;
         player.radialDist = target.radius + 0.5;
         const dir = new THREE.Vector3().subVectors(player.mesh.position, target.position).normalize();
@@ -456,15 +476,15 @@ function updateBunnies(delta) {
 }
 
 function createItemBox(planet) {
-    const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300 });
+    const geo = new THREE.BoxGeometry(1, 1, 1);
+    const mat = new THREE.MeshStandardMaterial({ map: questionTexture });
     const mesh = new THREE.Mesh(geo, mat);
     const box = {
         mesh,
         planet,
         lon: Math.random() * Math.PI * 2,
         lat: (Math.random() - 0.5) * 1.2,
-        radialDist: planet.radius + 0.6
+        radialDist: planet.radius + 1
     };
     scene.add(mesh);
     itemBoxes.push(box);
@@ -506,8 +526,8 @@ function grantRandomPowerUp() {
 function updateItemBoxes(delta) {
     for (let i = itemBoxes.length - 1; i >= 0; i--) {
         const box = itemBoxes[i];
-        box.mesh.rotation.y += delta * 5;
-        if (player.mesh.position.distanceTo(box.mesh.position) < 1) {
+        box.mesh.rotation.y += delta * 8;
+        if (player.mesh.position.distanceTo(box.mesh.position) < 1.2) {
             scene.remove(box.mesh);
             itemBoxes.splice(i, 1);
             playItemSound();
