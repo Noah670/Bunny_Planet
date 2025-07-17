@@ -403,6 +403,7 @@ function orientPlayer() {
     const target = player.mesh.position.clone().add(forward);
     player.mesh.up.copy(up);
     player.mesh.lookAt(target);
+    player.forward.copy(forward); // keep forward vector valid
 }
 
 function useTongue() {
