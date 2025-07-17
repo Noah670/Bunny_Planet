@@ -2,7 +2,10 @@
 
 This repo contains a small Three.js demo where you hop across tiny spherical planets to catch mischievous bunnies.
 
-The world features a bright blue gradient skybox and each bunny is now a simple model with a body, head, and floppy ears so they look more like real bunnies. The starting planet is a vibrant orange so it stands out against the sky.
+The world now uses a bright blue cloud-filled skybox. Each bunny is a simple model with a body, head, and floppy ears so they look more like real bunnies. The starting planet is a vibrant orange so it stands out against the sky.
+
+The player has a small humanoid model complete with arms, legs, and a hat. Movement and orientation have been tweaked so the avatar stays upright on the planets. A minor bug that caused the model to spin and fall over after moving has been fixed by ensuring its forward vector always remains tangent to the surface.
+Lighting uses classic Phong shading combined with a reflective environment map so planets and objects have shiny highlights.
 
 Open `start.html` and press **Start Game** to begin playing.
 

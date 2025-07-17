@@ -2,6 +2,7 @@
 // Bunny Planet - simple Three.js demo with spherical planets
 
 let scene, camera, renderer;
+let envMap;
 let player;
 const keys = {};
 const joystick = { x: 0, y: 0, active: false, stick: null };
@@ -113,65 +114,100 @@ document.addEventListener('DOMContentLoaded', () => {
 function createPlayerModel() {
     const group = new THREE.Group();
 
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3355ff });
-    const bodyGeo = new THREE.BoxGeometry(0.4, 0.6, 0.2);
+    const bodyMat = new THREE.MeshPhongMaterial({ color: 0x3355ff, shininess: 60, reflectivity: 0.7, envMap });
+    const fleshMat = new THREE.MeshPhongMaterial({ color: 0xffe0bd, shininess: 30, reflectivity: 0.4, envMap });
+
+    const bodyGeo = new THREE.CylinderGeometry(0.22, 0.25, 0.8, 16);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.3;
+    body.castShadow = true;
+    body.position.y = 0.6;
     group.add(body);
 
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd });
     const headGeo = new THREE.SphereGeometry(0.25, 16, 16);
-    const head = new THREE.Mesh(headGeo, headMat);
-    head.position.y = 0.8;
+    const head = new THREE.Mesh(headGeo, fleshMat);
+    head.castShadow = true;
+    head.position.y = 1.1;
     group.add(head);
 
-    const hatMat = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-    const brimGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.05, 16);
+    const armGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 12);
+    const armL = new THREE.Mesh(armGeo, bodyMat);
+    armL.castShadow = true;
+    armL.position.set(-0.35, 0.9, 0);
+    armL.rotation.z = Math.PI / 2;
+    group.add(armL);
+    const armR = armL.clone();
+    armR.position.x = 0.35;
+    group.add(armR);
+
+    const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 12);
+    const legL = new THREE.Mesh(legGeo, bodyMat);
+    legL.castShadow = true;
+    legL.position.set(-0.15, 0.25, 0);
+    group.add(legL);
+    const legR = legL.clone();
+    legR.position.x = 0.15;
+    group.add(legR);
+
+    const hatMat = new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 80, reflectivity: 0.8, envMap });
+    const brimGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 16);
     const brim = new THREE.Mesh(brimGeo, hatMat);
-    brim.position.y = 1.05;
+    brim.castShadow = true;
+    brim.position.y = 1.3;
     group.add(brim);
-    const hatGeo = new THREE.CylinderGeometry(0.2, 0.25, 0.2, 16);
+    const hatGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.25, 16);
     const hat = new THREE.Mesh(hatGeo, hatMat);
-    hat.position.y = 1.15;
+    hat.castShadow = true;
+    hat.position.y = 1.45;
     group.add(hat);
 
     return group;
 }
 
-function createSky() {
-    const geometry = new THREE.SphereGeometry(100, 32, 32);
-    const material = new THREE.ShaderMaterial({
-        uniforms: {
-            topColor: { value: new THREE.Color(0x87ceff) },
-            bottomColor: { value: new THREE.Color(0xb0e0ff) }
-        },
-        vertexShader: `varying vec3 vPos; void main(){vPos=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-        fragmentShader: `varying vec3 vPos; uniform vec3 topColor; uniform vec3 bottomColor; void main(){float h=normalize(vPos).y; gl_FragColor=vec4(mix(bottomColor, topColor, max(h,0.0)),1.0);}`,
-        side: THREE.BackSide,
-        depthWrite: false
-    });
-    const sky = new THREE.Mesh(geometry, material);
-    scene.add(sky);
+function createSkybox() {
+    const loader = new THREE.CubeTextureLoader();
+    const tex = loader
+        .setPath('https://threejs.org/examples/textures/cube/skyboxsun25/')
+        .load(['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg']);
+    tex.encoding = THREE.sRGBEncoding;
+    scene.background = tex;
 }
 
 function init() {
     const canvas = document.getElementById('gameCanvas');
-    renderer = new THREE.WebGLRenderer({ canvas });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.physicallyCorrectLights = false;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     bunnyCounter = document.getElementById('bunnyCount');
     timerDisplay = document.getElementById('timerVal');
 
     scene = new THREE.Scene();
-    createSky();
+    createSkybox();
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 10);
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
+    const loader = new THREE.CubeTextureLoader();
+    envMap = loader.setPath('https://threejs.org/examples/textures/cube/Bridge2/').load([
+        'posx.jpg', 'negx.jpg',
+        'posy.jpg', 'negy.jpg',
+        'posz.jpg', 'negz.jpg'
+    ]);
+    envMap.encoding = THREE.sRGBEncoding;
+    scene.environment = envMap;
+
+    const light = new THREE.DirectionalLight(0xffffff, 1.2);
     light.position.set(5, 10, 7);
+    light.castShadow = true;
+    light.shadow.camera.near = 0.1;
+    light.shadow.camera.far = 50;
     scene.add(light);
-    scene.add(new THREE.AmbientLight(0x404040));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.4));
 
     // Create some vibrant planets
     createPlanet(7, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
@@ -194,6 +230,7 @@ function init() {
 
     // Player model
     const mesh = createPlayerModel();
+    mesh.traverse(o => o.castShadow = true);
     scene.add(mesh);
 
     const startPlanet = planets[0];
@@ -220,12 +257,14 @@ function init() {
 
 function createPlanet(radius, pos, color) {
     const geo = new THREE.SphereGeometry(radius, 32, 32);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshPhongMaterial({
         color,
-        roughness: 0.6,
-        metalness: 0.1
+        shininess: 50,
+        reflectivity: 0.6,
+        envMap
     });
     const mesh = new THREE.Mesh(geo, mat);
+    mesh.receiveShadow = true;
     mesh.position.copy(pos);
     scene.add(mesh);
     planets.push({ mesh, radius, position: pos });
@@ -233,22 +272,26 @@ function createPlanet(radius, pos, color) {
 
 function createBunnyModel() {
     const group = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const mat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 40, reflectivity: 0.6, envMap });
     const body = new THREE.SphereGeometry(0.25, 16, 16);
     const bodyMesh = new THREE.Mesh(body, mat);
+    bodyMesh.castShadow = true;
     bodyMesh.position.y = 0.25;
     group.add(bodyMesh);
 
     const head = new THREE.SphereGeometry(0.18, 16, 16);
     const headMesh = new THREE.Mesh(head, mat);
+    headMesh.castShadow = true;
     headMesh.position.y = 0.55;
     group.add(headMesh);
 
     const earGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8);
     const ear1 = new THREE.Mesh(earGeo, mat);
+    ear1.castShadow = true;
     ear1.position.set(-0.07, 0.8, 0);
     group.add(ear1);
     const ear2 = ear1.clone();
+    ear2.castShadow = true;
     ear2.position.x = 0.07;
     group.add(ear2);
     return group;
@@ -296,7 +339,7 @@ function updatePlayer(delta) {
     const baseForward = new THREE.Vector3(0, 0, -1).applyAxisAngle(up, cameraYaw);
     const right = new THREE.Vector3().crossVectors(baseForward, up).normalize();
     const forward = new THREE.Vector3().crossVectors(up, right).normalize();
-    player.forward.copy(baseForward);
+    player.forward.copy(forward);
 
     const move = new THREE.Vector3();
     if (keys['KeyW']) move.add(forward);
@@ -352,11 +395,14 @@ function updatePlayer(delta) {
 
 function orientPlayer() {
     const up = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
-    const right = new THREE.Vector3().crossVectors(player.forward, up).normalize();
-    const forward = new THREE.Vector3().crossVectors(up, right).normalize();
-    const m = new THREE.Matrix4();
-    m.makeBasis(right, up, forward);
-    player.mesh.quaternion.setFromRotationMatrix(m);
+    // Ensure forward is tangent to the surface
+    const forward = player.forward.clone().projectOnPlane(up).normalize();
+    if (forward.lengthSq() === 0) {
+        forward.set(0, 0, -1).applyAxisAngle(up, cameraYaw);
+    }
+    const target = player.mesh.position.clone().add(forward);
+    player.mesh.up.copy(up);
+    player.mesh.lookAt(target);
 }
 
 function useTongue() {
@@ -366,7 +412,7 @@ function useTongue() {
     const start = player.mesh.position.clone().add(dir.clone().multiplyScalar(0.8));
     const end = start.clone().add(dir.clone().multiplyScalar(range));
     const geo = new THREE.CylinderGeometry(0.05, 0.05, range, 8);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xff8080 });
+    const mat = new THREE.MeshPhongMaterial({ color: 0xff8080, shininess: 10, reflectivity: 0.5, envMap });
     const tongue = new THREE.Mesh(geo, mat);
     tongue.position.copy(start.clone().add(end).multiplyScalar(0.5));
     tongue.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
@@ -482,8 +528,9 @@ function getQuestionTexture() {
 function createItemBox(planet) {
     const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
     const tex = getQuestionTexture();
-    const mat = new THREE.MeshStandardMaterial({ map: tex, emissive: 0x333300 });
+    const mat = new THREE.MeshPhongMaterial({ map: tex, shininess: 20, reflectivity: 0.5, envMap });
     const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
     const box = {
         mesh,
         planet,
@@ -550,8 +597,9 @@ function updateItemBoxes(delta) {
 function createPowerItem(type, pos) {
     const color = type === 'speed' ? 0x00ff00 : 0xff80c0;
     const geo = new THREE.IcosahedronGeometry(0.3, 0);
-    const mat = new THREE.MeshStandardMaterial({ color, emissive: 0x222222 });
+    const mat = new THREE.MeshPhongMaterial({ color, shininess: 50, reflectivity: 0.8, envMap });
     const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = true;
     mesh.position.copy(pos);
     scene.add(mesh);
     spinningItems.push({ mesh, type, timer: 1 });
