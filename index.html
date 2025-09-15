@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bunny Planet</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; }
+        body { margin: 0; overflow: hidden; background: radial-gradient(circle at top, #1c2d4f 0%, #090b14 70%); }
         canvas { display: block; touch-action: none; }
         #ui {
             position: absolute;
@@ -38,6 +38,12 @@
             font-family: Arial, sans-serif;
             z-index: 20;
         }
+        #startScreen h1 {
+            font-size: 48px;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            text-shadow: 0 12px 32px rgba(0,0,0,0.55);
+        }
         #startButton, #restartButton, #titleButton {
             padding: 15px 30px;
             margin-top: 20px;
@@ -48,6 +54,19 @@
             font-size: 24px;
             cursor: pointer;
             text-decoration: none;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        #startButton:hover:not(:disabled),
+        #restartButton:hover,
+        #titleButton:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 28px rgba(0,0,0,0.4);
+        }
+        #startButton:disabled {
+            background: rgba(120,120,120,0.8);
+            cursor: default;
+            box-shadow: none;
         }
         #joystick {
             position: absolute;
@@ -68,6 +87,37 @@
             background: rgba(255,255,255,0.4);
             border-radius: 50%;
             transform: translate(0, 0);
+        }
+        #loadingOverlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-top: 15px;
+            transition: opacity 0.35s ease;
+        }
+        #loadingOverlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        #loadingText {
+            font-size: 18px;
+            letter-spacing: 2px;
+        }
+        #loadingBar {
+            width: 260px;
+            height: 12px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.25);
+            overflow: hidden;
+            box-shadow: inset 0 4px 12px rgba(0,0,0,0.35);
+        }
+        #loadingBarFill {
+            display: block;
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #6bd5ff, #ff9dff);
+            transition: width 0.25s ease;
         }
         #jumpButton, #hopButton, #tongueButton {
             position: absolute;
@@ -92,6 +142,10 @@
 <body>
     <div id="startScreen">
         <h1>Bunny Planet</h1>
+        <div id="loadingOverlay">
+            <div id="loadingText">Loading 0%</div>
+            <div id="loadingBar"><span id="loadingBarFill"></span></div>
+        </div>
         <button id="startButton">Start</button>
     </div>
     <div id="completeScreen" style="display:none;">

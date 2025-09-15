@@ -2,6 +2,7 @@
 // Bunny Planet - simple Three.js demo with spherical planets
 
 let scene, camera, renderer;
+let pmremGenerator;
 let envMap;
 let player;
 const keys = {};
@@ -27,6 +28,78 @@ let tongueBtn;
 let timer = 250;
 let gameOver = false;
 
+const loadedAssets = {
+    envMap: null,
+    skybox: null,
+    planetNormal: null
+};
+
+let assetsPromise = Promise.resolve(loadedAssets);
+let loadingOverlay;
+let loadingText;
+let loadingBarFill;
+let maxAnisotropy = 1;
+let startButton;
+
+function preloadAssets(progressCallback) {
+    const manager = new THREE.LoadingManager();
+    manager.onStart = () => {
+        if (progressCallback) progressCallback(0);
+    };
+    manager.onProgress = (_, loaded, total) => {
+        if (!progressCallback || total === 0) return;
+        progressCallback(Math.min(loaded / total, 1));
+    };
+    manager.onLoad = () => {
+        if (progressCallback) progressCallback(1);
+    };
+    manager.onError = (url) => {
+        console.warn(`Failed to load asset: ${url}`);
+    };
+
+    const skyboxLoader = new THREE.CubeTextureLoader(manager).setPath('https://threejs.org/examples/textures/cube/skyboxsun25/');
+    const envLoader = new THREE.CubeTextureLoader(manager).setPath('https://threejs.org/examples/textures/cube/Bridge2/');
+    const textureLoader = new THREE.TextureLoader(manager);
+
+    const safeLoad = (promise) => promise.catch((err) => {
+        console.warn('Falling back because an asset failed to load.', err);
+        return null;
+    });
+
+    const skyboxPromise = safeLoad(skyboxLoader.loadAsync(['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg']).then((tex) => {
+        tex.encoding = THREE.sRGBEncoding;
+        return tex;
+    }));
+
+    const envPromise = safeLoad(envLoader.loadAsync(['posx.jpg', 'negx.jpg', 'posy.jpg', 'negy.jpg', 'posz.jpg', 'negz.jpg']).then((tex) => {
+        tex.encoding = THREE.sRGBEncoding;
+        return tex;
+    }));
+
+    const normalPromise = safeLoad(textureLoader.loadAsync('https://threejs.org/examples/textures/terrain/grasslight-big-nm.jpg').then((tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(4, 4);
+        return tex;
+    }));
+
+    return Promise.all([envPromise, skyboxPromise, normalPromise]).then(([envTexture, skyboxTexture, normalTexture]) => {
+        return {
+            envMap: envTexture,
+            skybox: skyboxTexture,
+            planetNormal: normalTexture
+        };
+    });
+}
+
+function updateLoadingUI(progress) {
+    const percent = Math.round(progress * 100);
+    if (loadingText) loadingText.textContent = `Loading ${percent}%`;
+    if (loadingBarFill) loadingBarFill.style.width = `${percent}%`;
+    if (startButton && startButton.disabled) {
+        startButton.textContent = `Loading... ${percent}%`;
+    }
+}
+
 function showComplete(win) {
     gameOver = true;
     const screen = document.getElementById('completeScreen');
@@ -37,16 +110,63 @@ function showComplete(win) {
 
 document.addEventListener('DOMContentLoaded', () => {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const startBtn = document.getElementById('startButton');
-    startBtn.addEventListener('click', () => {
-        document.getElementById('startScreen').style.display = 'none';
-        init();
-        animate();
+
+    loadingOverlay = document.getElementById('loadingOverlay');
+    loadingText = document.getElementById('loadingText');
+    loadingBarFill = document.getElementById('loadingBarFill');
+
+    startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.disabled = true;
+        startButton.textContent = 'Loading... 0%';
+    }
+
+    const hideLoadingOverlay = () => {
+        if (!loadingOverlay) return;
+        loadingOverlay.classList.add('hidden');
+        setTimeout(() => {
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
+        }, 350);
+    };
+
+    assetsPromise = preloadAssets(updateLoadingUI).then((assets) => {
+        Object.assign(loadedAssets, assets);
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start';
+        }
+        hideLoadingOverlay();
+        return assets;
+    }).catch((err) => {
+        console.warn('Proceeding without preloaded assets.', err);
+        if (startButton) {
+            startButton.disabled = false;
+            startButton.textContent = 'Start';
+        }
+        hideLoadingOverlay();
+        return loadedAssets;
     });
 
-    document.getElementById('restartButton').addEventListener('click', () => {
-        window.location.reload();
-    });
+    if (startButton) {
+        startButton.addEventListener('click', async () => {
+            startButton.disabled = true;
+            document.getElementById('startScreen').style.display = 'none';
+            try {
+                await assetsPromise;
+            } catch (err) {
+                console.warn('Assets were not fully preloaded before starting.', err);
+            }
+            init();
+            animate();
+        });
+    }
+
+    const restartBtn = document.getElementById('restartButton');
+    if (restartBtn) {
+        restartBtn.addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
 
     joystick.stick = document.getElementById('stick');
     const joyEl = document.getElementById('joystick');
@@ -114,22 +234,22 @@ document.addEventListener('DOMContentLoaded', () => {
 function createPlayerModel() {
     const group = new THREE.Group();
 
-    const bodyMat = new THREE.MeshPhongMaterial({ color: 0x3355ff, shininess: 60, reflectivity: 0.7, envMap });
-    const fleshMat = new THREE.MeshPhongMaterial({ color: 0xffe0bd, shininess: 30, reflectivity: 0.4, envMap });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x3355ff, metalness: 0.35, roughness: 0.25, envMapIntensity: 1.4 });
+    const fleshMat = new THREE.MeshStandardMaterial({ color: 0xffe0bd, metalness: 0.1, roughness: 0.5, envMapIntensity: 0.8 });
 
-    const bodyGeo = new THREE.CylinderGeometry(0.22, 0.25, 0.8, 16);
+    const bodyGeo = new THREE.CylinderGeometry(0.22, 0.25, 0.8, 24);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.castShadow = true;
     body.position.y = 0.6;
     group.add(body);
 
-    const headGeo = new THREE.SphereGeometry(0.25, 16, 16);
+    const headGeo = new THREE.SphereGeometry(0.25, 24, 24);
     const head = new THREE.Mesh(headGeo, fleshMat);
     head.castShadow = true;
     head.position.y = 1.1;
     group.add(head);
 
-    const armGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 12);
+    const armGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 20);
     const armL = new THREE.Mesh(armGeo, bodyMat);
     armL.castShadow = true;
     armL.position.set(-0.35, 0.9, 0);
@@ -139,7 +259,7 @@ function createPlayerModel() {
     armR.position.x = 0.35;
     group.add(armR);
 
-    const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 12);
+    const legGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.5, 20);
     const legL = new THREE.Mesh(legGeo, bodyMat);
     legL.castShadow = true;
     legL.position.set(-0.15, 0.25, 0);
@@ -148,13 +268,13 @@ function createPlayerModel() {
     legR.position.x = 0.15;
     group.add(legR);
 
-    const hatMat = new THREE.MeshPhongMaterial({ color: 0xff0000, shininess: 80, reflectivity: 0.8, envMap });
-    const brimGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 16);
+    const hatMat = new THREE.MeshStandardMaterial({ color: 0xff4a4a, metalness: 0.75, roughness: 0.2, envMapIntensity: 1.8, emissive: new THREE.Color(0x220000) });
+    const brimGeo = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 24);
     const brim = new THREE.Mesh(brimGeo, hatMat);
     brim.castShadow = true;
     brim.position.y = 1.3;
     group.add(brim);
-    const hatGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.25, 16);
+    const hatGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.25, 24);
     const hat = new THREE.Mesh(hatGeo, hatMat);
     hat.castShadow = true;
     hat.position.y = 1.45;
@@ -164,12 +284,24 @@ function createPlayerModel() {
 }
 
 function createSkybox() {
+    if (loadedAssets.skybox) {
+        scene.background = loadedAssets.skybox;
+        return;
+    }
     const loader = new THREE.CubeTextureLoader();
-    const tex = loader
+    loader
         .setPath('https://threejs.org/examples/textures/cube/skyboxsun25/')
-        .load(['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg']);
-    tex.encoding = THREE.sRGBEncoding;
-    scene.background = tex;
+        .load(
+            ['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg'],
+            (tex) => {
+                tex.encoding = THREE.sRGBEncoding;
+                scene.background = tex;
+            },
+            undefined,
+            () => {
+                scene.background = new THREE.Color(0x87ceeb);
+            }
+        );
 }
 
 function init() {
@@ -179,35 +311,81 @@ function init() {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.physicallyCorrectLights = false;
+    renderer.toneMappingExposure = 1.15;
+    renderer.physicallyCorrectLights = true;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    maxAnisotropy = renderer.capabilities.getMaxAnisotropy();
 
     bunnyCounter = document.getElementById('bunnyCount');
     timerDisplay = document.getElementById('timerVal');
 
     scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x7ec8ff, 80, 180);
     createSkybox();
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 10);
 
-    const loader = new THREE.CubeTextureLoader();
-    envMap = loader.setPath('https://threejs.org/examples/textures/cube/Bridge2/').load([
-        'posx.jpg', 'negx.jpg',
-        'posy.jpg', 'negy.jpg',
-        'posz.jpg', 'negz.jpg'
-    ]);
-    envMap.encoding = THREE.sRGBEncoding;
-    scene.environment = envMap;
+    pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileCubemapShader();
 
-    const light = new THREE.DirectionalLight(0xffffff, 1.2);
-    light.position.set(5, 10, 7);
-    light.castShadow = true;
-    light.shadow.camera.near = 0.1;
-    light.shadow.camera.far = 50;
-    scene.add(light);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.4));
+    const applyEnvironment = (cubeTexture) => {
+        if (!cubeTexture) {
+            pmremGenerator.dispose();
+            pmremGenerator = null;
+            return;
+        }
+        const pmremTexture = pmremGenerator.fromCubemap(cubeTexture);
+        envMap = pmremTexture.texture;
+        scene.environment = envMap;
+        cubeTexture.dispose();
+        loadedAssets.envMap = null;
+        pmremGenerator.dispose();
+        pmremGenerator = null;
+    };
+
+    if (loadedAssets.envMap) {
+        applyEnvironment(loadedAssets.envMap);
+    } else {
+        new THREE.CubeTextureLoader()
+            .setPath('https://threejs.org/examples/textures/cube/Bridge2/')
+            .load(
+                ['posx.jpg', 'negx.jpg', 'posy.jpg', 'negy.jpg', 'posz.jpg', 'negz.jpg'],
+                (tex) => {
+                    tex.encoding = THREE.sRGBEncoding;
+                    applyEnvironment(tex);
+                },
+                undefined,
+                () => {
+                    pmremGenerator.dispose();
+                    pmremGenerator = null;
+                }
+            );
+    }
+
+    const keyLight = new THREE.DirectionalLight(0xfff6e8, 3.5);
+    keyLight.position.set(6, 10, 4);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 0.5;
+    keyLight.shadow.camera.far = 60;
+    keyLight.shadow.camera.left = -20;
+    keyLight.shadow.camera.right = 20;
+    keyLight.shadow.camera.top = 20;
+    keyLight.shadow.camera.bottom = -20;
+    keyLight.shadow.bias = -0.0004;
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x88caff, 1.6);
+    fillLight.position.set(-8, 5, -6);
+    scene.add(fillLight);
+
+    const rimLight = new THREE.PointLight(0xff9a6b, 25, 80);
+    rimLight.position.set(0, 6, 12);
+    scene.add(rimLight);
+
+    scene.add(new THREE.HemisphereLight(0xb7d9ff, 0x445566, 0.35));
 
     // Create some vibrant planets
     createPlanet(7, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
@@ -256,15 +434,27 @@ function init() {
 }
 
 function createPlanet(radius, pos, color) {
-    const geo = new THREE.SphereGeometry(radius, 32, 32);
-    const mat = new THREE.MeshPhongMaterial({
+    const geo = new THREE.SphereGeometry(radius, 64, 64);
+    const mat = new THREE.MeshStandardMaterial({
         color,
-        shininess: 50,
-        reflectivity: 0.6,
-        envMap
+        roughness: 0.35,
+        metalness: 0.15,
+        envMapIntensity: 1.2
     });
+    if (loadedAssets.planetNormal) {
+        const normalMap = loadedAssets.planetNormal.clone();
+        normalMap.wrapS = normalMap.wrapT = THREE.RepeatWrapping;
+        const repeat = 2 + Math.random() * 2;
+        normalMap.repeat.set(repeat, repeat);
+        normalMap.rotation = Math.random() * Math.PI * 2;
+        normalMap.needsUpdate = true;
+        normalMap.anisotropy = Math.min(maxAnisotropy, 8);
+        mat.normalMap = normalMap;
+        mat.normalScale = new THREE.Vector2(0.45, 0.45);
+    }
     const mesh = new THREE.Mesh(geo, mat);
     mesh.receiveShadow = true;
+    mesh.castShadow = true;
     mesh.position.copy(pos);
     scene.add(mesh);
     planets.push({ mesh, radius, position: pos });
@@ -272,20 +462,22 @@ function createPlanet(radius, pos, color) {
 
 function createBunnyModel() {
     const group = new THREE.Group();
-    const mat = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 40, reflectivity: 0.6, envMap });
-    const body = new THREE.SphereGeometry(0.25, 16, 16);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, metalness: 0.05, envMapIntensity: 1.1 });
+    const innerEarMat = new THREE.MeshStandardMaterial({ color: 0xffb6d9, roughness: 0.4, metalness: 0.1, envMapIntensity: 1.25 });
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2, metalness: 1.0, envMapIntensity: 2.0 });
+    const body = new THREE.SphereGeometry(0.25, 20, 20);
     const bodyMesh = new THREE.Mesh(body, mat);
     bodyMesh.castShadow = true;
     bodyMesh.position.y = 0.25;
     group.add(bodyMesh);
 
-    const head = new THREE.SphereGeometry(0.18, 16, 16);
+    const head = new THREE.SphereGeometry(0.18, 20, 20);
     const headMesh = new THREE.Mesh(head, mat);
     headMesh.castShadow = true;
     headMesh.position.y = 0.55;
     group.add(headMesh);
 
-    const earGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 8);
+    const earGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 16);
     const ear1 = new THREE.Mesh(earGeo, mat);
     ear1.castShadow = true;
     ear1.position.set(-0.07, 0.8, 0);
@@ -294,6 +486,30 @@ function createBunnyModel() {
     ear2.castShadow = true;
     ear2.position.x = 0.07;
     group.add(ear2);
+
+    const innerEarGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.28, 12);
+    const innerEarL = new THREE.Mesh(innerEarGeo, innerEarMat);
+    innerEarL.position.set(-0.07, 0.8, 0.005);
+    innerEarL.castShadow = false;
+    group.add(innerEarL);
+    const innerEarR = innerEarL.clone();
+    innerEarR.position.x = 0.07;
+    group.add(innerEarR);
+
+    const noseGeo = new THREE.SphereGeometry(0.04, 16, 16);
+    const nose = new THREE.Mesh(noseGeo, innerEarMat);
+    nose.castShadow = true;
+    nose.position.set(0, 0.52, 0.16);
+    group.add(nose);
+
+    const eyeGeo = new THREE.SphereGeometry(0.04, 16, 16);
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.castShadow = true;
+    eyeL.position.set(-0.06, 0.58, 0.14);
+    group.add(eyeL);
+    const eyeR = eyeL.clone();
+    eyeR.position.x = 0.06;
+    group.add(eyeR);
     return group;
 }
 
@@ -413,7 +629,14 @@ function useTongue() {
     const start = player.mesh.position.clone().add(dir.clone().multiplyScalar(0.8));
     const end = start.clone().add(dir.clone().multiplyScalar(range));
     const geo = new THREE.CylinderGeometry(0.05, 0.05, range, 8);
-    const mat = new THREE.MeshPhongMaterial({ color: 0xff8080, shininess: 10, reflectivity: 0.5, envMap });
+    const mat = new THREE.MeshStandardMaterial({
+        color: 0xff8080,
+        roughness: 0.4,
+        metalness: 0.2,
+        envMapIntensity: 1.1,
+        emissive: new THREE.Color(0xff5a7a),
+        emissiveIntensity: 0.35
+    });
     const tongue = new THREE.Mesh(geo, mat);
     tongue.position.copy(start.clone().add(end).multiplyScalar(0.5));
     tongue.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
@@ -529,7 +752,14 @@ function getQuestionTexture() {
 function createItemBox(planet) {
     const geo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
     const tex = getQuestionTexture();
-    const mat = new THREE.MeshPhongMaterial({ map: tex, shininess: 20, reflectivity: 0.5, envMap });
+    const mat = new THREE.MeshStandardMaterial({
+        map: tex,
+        roughness: 0.5,
+        metalness: 0.25,
+        envMapIntensity: 1.2,
+        emissive: new THREE.Color(0xffd26b),
+        emissiveIntensity: 0.2
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true;
     const box = {
@@ -598,7 +828,15 @@ function updateItemBoxes(delta) {
 function createPowerItem(type, pos) {
     const color = type === 'speed' ? 0x00ff00 : 0xff80c0;
     const geo = new THREE.IcosahedronGeometry(0.3, 0);
-    const mat = new THREE.MeshPhongMaterial({ color, shininess: 50, reflectivity: 0.8, envMap });
+    const emissiveColor = new THREE.Color(color).multiplyScalar(0.5);
+    const mat = new THREE.MeshStandardMaterial({
+        color,
+        metalness: 0.85,
+        roughness: 0.2,
+        envMapIntensity: 1.6,
+        emissive: emissiveColor,
+        emissiveIntensity: 0.6
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.castShadow = true;
     mesh.position.copy(pos);
