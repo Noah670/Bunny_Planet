@@ -5,6 +5,8 @@ let scene, camera, renderer;
 let pmremGenerator;
 let envMap;
 let player;
+let skyDome;
+let cloudDome;
 const keys = {};
 const joystick = { x: 0, y: 0, active: false, stick: null };
 const planets = [];
@@ -39,7 +41,8 @@ const hopRange = 22;
 const loadedAssets = {
     envMap: null,
     skybox: null,
-    planetNormal: null
+    planetNormal: null,
+    cloudTexture: null
 };
 
 let assetsPromise = Promise.resolve(loadedAssets);
@@ -90,11 +93,18 @@ function preloadAssets(progressCallback) {
         return tex;
     }));
 
-    return Promise.all([envPromise, skyboxPromise, normalPromise]).then(([envTexture, skyboxTexture, normalTexture]) => {
+    const cloudPromise = safeLoad(textureLoader.loadAsync('https://threejs.org/examples/textures/lava/cloud.png').then((tex) => {
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(2, 1);
+        return tex;
+    }));
+
+    return Promise.all([envPromise, skyboxPromise, normalPromise, cloudPromise]).then(([envTexture, skyboxTexture, normalTexture, cloudTexture]) => {
         return {
             envMap: envTexture,
             skybox: skyboxTexture,
-            planetNormal: normalTexture
+            planetNormal: normalTexture,
+            cloudTexture
         };
     });
 }
@@ -326,28 +336,80 @@ function createPlayerModel() {
     hat.position.y = 1.45;
     group.add(hat);
 
+    group.userData.parts = { armL, armR, legL, legR, body };
+    group.userData.walkCycle = 0;
+
     return group;
+}
+
+function createSkyGradientTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 256);
+    gradient.addColorStop(0, '#7fd4ff');
+    gradient.addColorStop(0.4, '#4fa4ff');
+    gradient.addColorStop(1, '#17306b');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 256, 256);
+    return new THREE.CanvasTexture(canvas);
+}
+
+function createCloudDome() {
+    const texture = loadedAssets.cloudTexture;
+    if (!texture) return null;
+    texture.anisotropy = Math.min(maxAnisotropy, 4);
+    const cloudMat = new THREE.MeshBasicMaterial({
+        map: texture,
+        side: THREE.BackSide,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+    });
+    const cloudGeo = new THREE.SphereGeometry(420, 64, 64);
+    const clouds = new THREE.Mesh(cloudGeo, cloudMat);
+    clouds.rotation.y = Math.random() * Math.PI * 2;
+    return clouds;
 }
 
 function createSkybox() {
     if (loadedAssets.skybox) {
         scene.background = loadedAssets.skybox;
-        return;
+    } else {
+        const loader = new THREE.CubeTextureLoader();
+        loader
+            .setPath('https://threejs.org/examples/textures/cube/skyboxsun25/')
+            .load(
+                ['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg'],
+                (tex) => {
+                    tex.encoding = THREE.sRGBEncoding;
+                    scene.background = tex;
+                },
+                undefined,
+                () => {
+                    scene.background = new THREE.Color(0x87ceeb);
+                }
+            );
     }
-    const loader = new THREE.CubeTextureLoader();
-    loader
-        .setPath('https://threejs.org/examples/textures/cube/skyboxsun25/')
-        .load(
-            ['px.jpg', 'nx.jpg', 'py.jpg', 'ny.jpg', 'pz.jpg', 'nz.jpg'],
-            (tex) => {
-                tex.encoding = THREE.sRGBEncoding;
-                scene.background = tex;
-            },
-            undefined,
-            () => {
-                scene.background = new THREE.Color(0x87ceeb);
-            }
-        );
+
+    if (!skyDome) {
+        const gradientTexture = createSkyGradientTexture();
+        const skyMat = new THREE.MeshBasicMaterial({
+            map: gradientTexture,
+            side: THREE.BackSide,
+            depthWrite: false
+        });
+        const skyGeo = new THREE.SphereGeometry(380, 64, 64);
+        skyDome = new THREE.Mesh(skyGeo, skyMat);
+        scene.add(skyDome);
+    }
+
+    if (!cloudDome) {
+        cloudDome = createCloudDome();
+        if (cloudDome) scene.add(cloudDome);
+    }
 }
 
 function init() {
@@ -371,7 +433,7 @@ function init() {
     controlHint = document.getElementById('controlHint');
 
     scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x7ec8ff, 80, 180);
+    scene.fog = new THREE.Fog(0x7ec8ff, 70, 200);
     createSkybox();
 
     camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -491,11 +553,13 @@ function init() {
 
 function createPlanet(name, radius, pos, color) {
     const geo = new THREE.SphereGeometry(radius, 64, 64);
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshPhysicalMaterial({
         color,
-        roughness: 0.35,
+        roughness: 0.38,
         metalness: 0.15,
-        envMapIntensity: 1.2
+        clearcoat: 0.2,
+        clearcoatRoughness: 0.6,
+        envMapIntensity: 1.25
     });
     if (loadedAssets.planetNormal) {
         const normalMap = loadedAssets.planetNormal.clone();
@@ -623,6 +687,7 @@ function updatePlayer(delta) {
         move.add(right.clone().multiplyScalar(joystick.x));
     }
 
+    const moveInput = Math.min(move.length(), 1);
     if (move.lengthSq() > 0) {
         move.normalize().multiplyScalar(moveSpeed * delta);
         const fromCenter = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position);
@@ -663,6 +728,7 @@ function updatePlayer(delta) {
     const dir = new THREE.Vector3().subVectors(player.mesh.position, player.planet.position).normalize();
     player.mesh.position.copy(player.planet.position).add(dir.multiplyScalar(player.radialDist));
     orientPlayer();
+    updatePlayerAnimation(delta, moveInput);
 }
 
 function orientPlayer() {
@@ -676,6 +742,22 @@ function orientPlayer() {
     player.mesh.up.copy(up);
     player.mesh.lookAt(target);
     player.forward.copy(forward); // keep forward vector valid
+}
+
+function updatePlayerAnimation(delta, moveInput) {
+    if (!player || !player.mesh || !player.mesh.userData.parts) return;
+    const { armL, armR, legL, legR, body } = player.mesh.userData.parts;
+    const speed = moveInput > 0.05 ? 6 : 2;
+    player.mesh.userData.walkCycle += delta * speed;
+    const cycle = player.mesh.userData.walkCycle;
+    const swing = Math.sin(cycle) * 0.6 * moveInput;
+    const bob = Math.abs(Math.cos(cycle)) * 0.05 * moveInput;
+
+    armL.rotation.x = swing;
+    armR.rotation.x = -swing;
+    legL.rotation.x = -swing;
+    legR.rotation.x = swing;
+    body.position.y = 0.6 + bob;
 }
 
 function updatePlanetHud() {
@@ -962,6 +1044,9 @@ function animate() {
         }
     }
 
+    if (cloudDome) {
+        cloudDome.rotation.y += delta * 0.02;
+    }
     updateCamera();
     if (timerDisplay) timerDisplay.textContent = Math.ceil(timer);
     if (tongueBtn) tongueBtn.style.display = player.tongueTime > 0 ? 'block' : 'none';
