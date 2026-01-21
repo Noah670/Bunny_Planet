@@ -2,6 +2,8 @@
 
 This repo contains a small Three.js demo where you hop across tiny spherical planets to catch mischievous bunnies.
 
+**Live preview:** https://noah670.github.io/Bunny_Planet/
+
 The world now loads with a bright blue cloud-filled skybox and a prefiltered reflection map. Surfaces use physically based `MeshStandardMaterial` shaders so hats, planets, and collectibles pick up crisp highlights and believable reflections. A subtle fog pass and a trio of key, fill, and rim lights add depth while the planets borrow a tiling normal map for extra surface detail. New named planets surround the starting world so you can preview nearby destinations from a HUD and hop between them more easily.
 
 A new loading overlay prefetches the skybox, environment reflections, and normal maps before play begins. The progress bar fades away once assets are ready, then the **Start** button enables so gameplay always begins with the full high-quality presentation.
