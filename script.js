@@ -24,9 +24,17 @@ let prevY = 0;
 
 let bunnyCounter;
 let timerDisplay;
+let planetHud;
+let planetName;
+let planetList;
+let controlHint;
 let tongueBtn;
 let timer = 250;
 let gameOver = false;
+let hintTimer = 4.5;
+let lastTapTime = 0;
+let lastTapPos = null;
+const hopRange = 22;
 
 const loadedAssets = {
     envMap: null,
@@ -186,13 +194,32 @@ document.addEventListener('DOMContentLoaded', () => {
         joystick.y = ny / max;
         joystick.stick.style.transform = `translate(${nx}px, ${ny}px)`;
     };
-    joyEl.addEventListener('touchstart', (e) => { joystick.active = true; handleJoy(e); });
-    joyEl.addEventListener('touchmove', handleJoy);
-    joyEl.addEventListener('touchend', () => {
+    const setJoystickBase = (x, y) => {
+        const size = joyEl.offsetWidth || 120;
+        joyEl.style.left = `${x - size / 2}px`;
+        joyEl.style.top = `${y - size / 2}px`;
+        joyEl.style.bottom = 'auto';
+    };
+    const resetJoystick = () => {
         joystick.active = false;
         joystick.x = joystick.y = 0;
         joystick.stick.style.transform = 'translate(0, 0)';
+        joyEl.classList.remove('active');
+        joyEl.style.left = '';
+        joyEl.style.top = '';
+        joyEl.style.bottom = '';
+    };
+    joyEl.addEventListener('touchstart', (e) => {
+        joystick.active = true;
+        joyEl.classList.add('active');
+        if (e.touches[0] && e.touches[0].clientX < window.innerWidth * 0.55) {
+            setJoystickBase(e.touches[0].clientX, e.touches[0].clientY);
+        }
+        handleJoy(e);
     });
+    joyEl.addEventListener('touchmove', handleJoy);
+    joyEl.addEventListener('touchend', resetJoystick);
+    joyEl.addEventListener('touchcancel', resetJoystick);
 
     const jumpBtn = document.getElementById('jumpButton');
     const hopBtn = document.getElementById('hopButton');
@@ -229,6 +256,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     window.addEventListener('pointerup', () => { drag = false; });
     window.addEventListener('pointercancel', () => { drag = false; });
+
+    canvas.addEventListener('touchend', (e) => {
+        if (!e.changedTouches[0]) return;
+        const now = performance.now();
+        const touch = e.changedTouches[0];
+        const pos = { x: touch.clientX, y: touch.clientY };
+        if (lastTapTime && now - lastTapTime < 320 && lastTapPos) {
+            const dx = pos.x - lastTapPos.x;
+            const dy = pos.y - lastTapPos.y;
+            if (Math.hypot(dx, dy) < 40) {
+                attemptPlanetHop();
+            }
+            lastTapTime = 0;
+            lastTapPos = null;
+        } else {
+            lastTapTime = now;
+            lastTapPos = pos;
+        }
+    });
 });
 
 function createPlayerModel() {
@@ -319,6 +365,10 @@ function init() {
 
     bunnyCounter = document.getElementById('bunnyCount');
     timerDisplay = document.getElementById('timerVal');
+    planetHud = document.getElementById('planetHud');
+    planetName = document.getElementById('planetName');
+    planetList = document.getElementById('planetList');
+    controlHint = document.getElementById('controlHint');
 
     scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0x7ec8ff, 80, 180);
@@ -388,9 +438,11 @@ function init() {
     scene.add(new THREE.HemisphereLight(0xb7d9ff, 0x445566, 0.35));
 
     // Create some vibrant planets
-    createPlanet(7, new THREE.Vector3(0, 0, 0), 0xff9933); // home planet now orange
-    createPlanet(5, new THREE.Vector3(18, 0, 0), 0xff8888);
-    createPlanet(6, new THREE.Vector3(-15, 0, 10), 0x88ff88);
+    createPlanet('Carrot Cove', 7, new THREE.Vector3(0, 0, 0), 0xff9933);
+    createPlanet('Petal Rock', 5, new THREE.Vector3(18, 0, -6), 0xff8888);
+    createPlanet('Mint Meadow', 6, new THREE.Vector3(-15, 0, 10), 0x88ff88);
+    createPlanet('Twilight Ridge', 4.5, new THREE.Vector3(5, 0, 18), 0x8fa9ff);
+    createPlanet('Lunar Puff', 5.5, new THREE.Vector3(-20, 0, -12), 0xf4d6ff);
 
     // Spawn some mischievous bunnies
     createBunny(planets[0]);
@@ -398,11 +450,15 @@ function init() {
     createBunny(planets[1]);
     createBunny(planets[2]);
     createBunny(planets[2]);
+    createBunny(planets[3]);
+    createBunny(planets[4]);
 
     // Add a few spinning item boxes
     createItemBox(planets[0]);
     createItemBox(planets[1]);
     createItemBox(planets[2]);
+    createItemBox(planets[3]);
+    createItemBox(planets[4]);
 
     bunnyCounter.textContent = bunnies.length;
 
@@ -433,7 +489,7 @@ function init() {
     window.addEventListener('resize', onResize);
 }
 
-function createPlanet(radius, pos, color) {
+function createPlanet(name, radius, pos, color) {
     const geo = new THREE.SphereGeometry(radius, 64, 64);
     const mat = new THREE.MeshStandardMaterial({
         color,
@@ -457,7 +513,7 @@ function createPlanet(radius, pos, color) {
     mesh.castShadow = true;
     mesh.position.copy(pos);
     scene.add(mesh);
-    planets.push({ mesh, radius, position: pos });
+    planets.push({ name, mesh, radius, position: pos });
 }
 
 function createBunnyModel() {
@@ -622,6 +678,26 @@ function orientPlayer() {
     player.forward.copy(forward); // keep forward vector valid
 }
 
+function updatePlanetHud() {
+    if (!planetName || !planetList || !player) return;
+    planetName.textContent = `Planet: ${player.planet.name}`;
+    const items = planets
+        .filter(p => p !== player.planet)
+        .map(p => {
+            const distance = player.mesh.position.distanceTo(p.position) - p.radius;
+            return { planet: p, distance };
+        })
+        .sort((a, b) => a.distance - b.distance)
+        .slice(0, 3);
+    planetList.innerHTML = '';
+    items.forEach(({ planet, distance }) => {
+        const li = document.createElement('li');
+        const label = distance <= hopRange ? 'In range' : `${distance.toFixed(1)}m`;
+        li.innerHTML = `${planet.name}: <span>${label}</span>`;
+        planetList.appendChild(li);
+    });
+}
+
 function useTongue() {
     if (player.tongueTime <= 0) return;
     const range = 3;
@@ -667,7 +743,7 @@ function attemptPlanetHop() {
             target = p;
         }
     }
-    if (target && minDist < 15) {
+    if (target && minDist < hopRange) {
         player.planet = target;
         player.radialDist = target.radius + 0.5;
         const dir = new THREE.Vector3().subVectors(player.mesh.position, target.position).normalize();
@@ -889,5 +965,10 @@ function animate() {
     updateCamera();
     if (timerDisplay) timerDisplay.textContent = Math.ceil(timer);
     if (tongueBtn) tongueBtn.style.display = player.tongueTime > 0 ? 'block' : 'none';
+    if (controlHint && hintTimer > 0) {
+        hintTimer -= delta;
+        if (hintTimer <= 0) controlHint.style.opacity = '0';
+    }
+    updatePlanetHud();
     renderer.render(scene, camera);
 }

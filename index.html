@@ -23,6 +23,51 @@
             font-family: Arial, sans-serif;
             z-index: 10;
         }
+        #planetHud {
+            position: absolute;
+            top: 58px;
+            left: 10px;
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(10, 20, 40, 0.55);
+            color: #e9f5ff;
+            font-family: Arial, sans-serif;
+            min-width: 180px;
+            box-shadow: 0 12px 22px rgba(0,0,0,0.35);
+            backdrop-filter: blur(6px);
+            z-index: 10;
+        }
+        #planetName {
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+        #planetList {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        #planetList li span {
+            color: #7cffd1;
+            font-weight: 600;
+        }
+        #controlHint {
+            position: absolute;
+            bottom: 190px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+            z-index: 12;
+            transition: opacity 0.4s ease;
+        }
         #startScreen, #completeScreen {
             position: absolute;
             top: 0;
@@ -77,6 +122,12 @@
             background: rgba(255,255,255,0.1);
             border-radius: 50%;
             touch-action: none;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.35);
+            transition: background 0.2s ease, box-shadow 0.2s ease;
+        }
+        #joystick.active {
+            background: rgba(255,255,255,0.18);
+            box-shadow: 0 14px 26px rgba(0,0,0,0.45);
         }
         #stick {
             position: absolute;
@@ -137,6 +188,29 @@
             bottom: 220px;
             background: rgba(255,200,50,0.9);
         }
+        @media (max-width: 720px) {
+            #joystick {
+                width: 140px;
+                height: 140px;
+                bottom: 24px;
+                left: 24px;
+            }
+            #stick {
+                width: 70px;
+                height: 70px;
+                left: 35px;
+                top: 35px;
+            }
+            #jumpButton, #hopButton, #tongueButton {
+                width: 90px;
+                height: 90px;
+                font-size: 18px;
+                right: 20px;
+            }
+            #hopButton { bottom: 140px; }
+            #tongueButton { bottom: 240px; }
+            #controlHint { bottom: 210px; }
+        }
     </style>
 </head>
 <body>
@@ -156,6 +230,11 @@
     <canvas id="gameCanvas"></canvas>
     <div id="ui">Bunnies left: <span id="bunnyCount">0</span></div>
     <div id="timer">Time: <span id="timerVal">250</span>s</div>
+    <div id="planetHud">
+        <div id="planetName">Planet: --</div>
+        <ul id="planetList"></ul>
+    </div>
+    <div id="controlHint">Drag to look · Double tap to hop · Use the stick to move</div>
     <div id="joystick"><div id="stick"></div></div>
     <button id="jumpButton">Jump</button>
     <button id="hopButton">Hop</button>
